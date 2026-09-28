@@ -11,7 +11,11 @@ C=${2:-cam-01}
 OUT=$(cd "$(dirname "$0")" && pwd)/captures/$NAME
 mkdir -p "$OUT"
 
-docker exec "$C" tar -C /data -cf - SSTCAM | tar -C "$OUT" -xf - && mv "$OUT/SSTCAM" "$OUT/data"
+# The camera keeps writing while we copy: tar exits 1 on "file changed as we read it". That is
+# expected for a live capture (the monitoring reader skips a truncated last record); fail on >1.
+docker exec "$C" tar -C /data --warning=no-file-changed -cf - SSTCAM | tar -C "$OUT" -xf - \
+  || { rc=$?; [ "$rc" -le 1 ] || exit "$rc"; }
+rm -rf "$OUT/data" && mv "$OUT/SSTCAM" "$OUT/data"
 docker exec "$C" journalctl -o json --no-pager > "$OUT/journal.jsonl"
 docker exec "$C" ucam python /opt/sstcam/lab/export_monitoring.py /data/SSTCAM/monitoring \
   > "$OUT/monitoring.jsonl"

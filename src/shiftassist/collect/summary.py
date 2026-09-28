@@ -64,8 +64,10 @@ class _Stat:
 @dataclass
 class CaptureSummary:
     name: str
-    first: datetime | None = None
+    first: datetime | None = None  # capture window: all sources
     last: datetime | None = None
+    log_first: datetime | None = None  # window in which the log files have entries
+    log_last: datetime | None = None
     files: list[tuple[str, int, int]] = field(default_factory=list)  # name, lines, entries
     by_process_level: Counter[tuple[str, str]] = field(default_factory=Counter)
     templates: Counter[tuple[str, str, str]] = field(default_factory=Counter)  # proc, level, tpl
@@ -86,9 +88,12 @@ class CaptureSummary:
             return 0.0
         return max((self.last - self.first).total_seconds() / 60, 1e-9)
 
-    def _seen(self, ts: datetime) -> None:
+    def _seen(self, ts: datetime, log: bool = False) -> None:
         self.first = ts if self.first is None or ts < self.first else self.first
         self.last = ts if self.last is None or ts > self.last else self.last
+        if log:
+            self.log_first = ts if self.log_first is None or ts < self.log_first else self.log_first
+            self.log_last = ts if self.log_last is None or ts > self.log_last else self.log_last
 
 
 def summarise(capture: str | Path) -> CaptureSummary:
@@ -109,7 +114,7 @@ def summarise(capture: str | Path) -> CaptureSummary:
         own = "gatherer_serve" not in f.name  # the gatherer's file mirrors the central log
         missing: list[Entry] = []
         for e in entries:
-            s._seen(e.ts)
+            s._seen(e.ts, log=True)
             if not own:
                 continue
             s.by_process_level[(e.process, e.level)] += 1
@@ -132,6 +137,7 @@ def summarise(capture: str | Path) -> CaptureSummary:
     if journal.exists():
         with journal.open() as fh:
             for e in parse_journal(fh):
+                s._seen(e.ts)
                 if e.kind == "unit":
                     ev = e.fields.get("event", "other")
                     s.unit_events[(e.unit or "", ev)] += 1
@@ -152,6 +158,7 @@ def summarise(capture: str | Path) -> CaptureSummary:
 def _add_samples(s: CaptureSummary, samples: Iterable[Sample]) -> None:
     last_msg: dict[tuple[str, str], datetime] = {}
     for x in samples:
+        s._seen(x.ts)
         key = (x.subsystem, x.entity)
         if last_msg.get(key) != x.ts:  # one message = several samples with the same ts
             last_msg[key] = x.ts
@@ -175,10 +182,16 @@ def render(s: CaptureSummary, top: int = 25) -> str:
     out: list[str] = [f"# Capture summary: {s.name}", ""]
     if s.first and s.last:
         out += [
-            f"Log window **{s.first:%Y-%m-%d %H:%M:%S} → {s.last:%H:%M:%S} UTC** "
-            f"({s.minutes:.1f} min).",
-            "",
+            f"Capture window **{s.first:%Y-%m-%d %H:%M:%S} → {s.last:%H:%M:%S} UTC** "
+            f"({s.minutes:.1f} min, all sources). Rates below are per minute of this window."
         ]
+        if s.log_first and s.log_last:
+            quiet = (s.last - s.log_last).total_seconds() / 60
+            out += [
+                f"Log files have entries from {s.log_first:%H:%M:%S} to {s.log_last:%H:%M:%S}; "
+                f"the last {quiet:.1f} min of the capture wrote no log lines."
+            ]
+        out += [""]
 
     lines = sum(n for _, n, _ in s.files)
     entries = sum(n for _, _, n in s.files)
@@ -279,8 +292,9 @@ def render(s: CaptureSummary, top: int = 25) -> str:
             sub == "slowsignal" and ch.startswith(("temperature_", "hv_"))
         )
         if interesting and st.n:
+            flat = " (flat)" if st.hi == st.lo else ""
             out.append(
-                f"| {sub}.{ch} | {st.n} | {st.lo:.3g} | {st.mean:.4g} | {st.hi:.3g} "
+                f"| {sub}.{ch}{flat} | {st.n} | {st.lo:.3g} | {st.mean:.4g} | {st.hi:.3g} "
                 f"| {st.std:.3g} |"
             )
     return "\n".join(out) + "\n"

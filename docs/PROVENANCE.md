@@ -24,6 +24,7 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-08](#p-08--real-camera-server-observability) | 2026-09-28 | Real observability summary | Invented format found; three data tiers proposed | — |
 | [P-09](#p-09--camera-in-a-box-tier-b-infrastructure) | 2026-09-28 | camera-in-a-box | Real camera software on mocks under systemd; 9 findings about the real system, 3 upstream build bugs | lab commit |
 | [P-10](#p-10--collectors-for-the-real-formats) | 2026-09-28 | Collectors | Parsers for logs, journal, monitoring; capture summary; tracebacks only in journal; central log misses boot | collect commit |
+| [P-11](#p-11--clean-baseline-30-min-one-camera) | 2026-09-28 | Clean baseline | 30 min, 0 restarts; healthy camera writes no logs; mock channels flat; slow-signal mock constant | baseline commit |
 
 ---
 
@@ -291,6 +292,38 @@ The last row is the strongest evidence for [ADR-0002](adr/0002-deterministic-det
 
 ---
 
+## P-11 · Clean baseline (30 min, one camera)
+
+**Goal.** Measure what "normal" looks like before injecting anything, so detection is tuned against data, not guesses.
+
+**Done.** `cam-01` ran untouched for 30.6 min from a cold boot; captured with `capture.sh baseline-30m` and summarised with `shiftassist-collect summarise` (report: `captures/baseline-30m/SUMMARY.md`, git-ignored).
+
+**Result**
+
+| | |
+|---|---|
+| Units | 11 active, **0 restarts**; journal: one start per unit, no exits, **0 tracebacks** |
+| Logs | 620 entries, **all within the first 12 s** (18:21:53–18:22:05). The last 30.3 min wrote **no log lines at all** |
+| WARNING+ | 1: the known, benign controller "simulation override" notice |
+| Central log | still misses the boot records of 6 servers (R11 reproduced) |
+| Monitoring | chiller, slowboard, eventbuilder at 1.0 Hz each for the whole run; slowsignal 31.9 Hz |
+| Volume | ~80 MB data + 112 MB decoded monitoring per camera per 30 min (monitoring dominates) |
+
+**Findings**
+
+| # | Finding | Consequence for the assistant |
+|---|---|---|
+| R14 | **A healthy camera writes no logs after start-up.** Logs are purely an event stream | "Nothing in the logs" means nothing, not "healthy". Liveness must come from monitoring cadence (1 Hz per subsystem) and the journal. Rates must be computed over the capture window, not the log window |
+| R15 | **Several mock channels are flat or physically impossible:** slowboard humidity −25.8 %, external temperature −40 °C, all power-rail currents 0, fan speeds 0 (39 flat channels in total) | Rules on these channels would be meaningless or fire constantly. Detection needs a per-channel "has signal" flag learned from the baseline |
+| R16 | **The slow-signal mock's clean (`example`) mode sends one constant packet:** every temperature fixed (std 0), HV 12 V, and every packet claims module slot 1 | No realistic slow-signal data and no way to inject a per-module fault through the mock as shipped. Needed: a realistic packet generator (real packet class and server path, plausible per-module values) |
+
+**Failures / dead ends (mine)**
+- **X-11a** `capture.sh` treated tar's "file changed as we read it" (expected on a live camera) as a failure, so the rename step did not run. Fixed: exit status 1 tolerated, >1 fails.
+- **X-11b** The first summary computed rates over the log window (12 s) instead of the capture window (30.6 min), overstating rates ~150×. R14 made this visible. Fixed: the window spans all sources, and the quiet period is reported.
+- **X-11c** The first background capture job would have been killed by the tool's 10-min timeout. Replaced by a detached process before it fired.
+
+---
+
 ## Failure register
 
 Every failure in one table, with how it was found and where it was resolved. "Found by" matters: a failure found by a test or a measurement is worth more than one found by reading.
@@ -311,6 +344,8 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-09e | P-09 | P-09 | Measurement | Offline test could not detect the warnings it was meant to count | False "no difference" | Measured in the running server | Resolved |
 | X-10a | P-10 | P-10 | Counting entry kinds | Journal continuation lines became 153k separate entries | Multi-line records split | Group per PID | Resolved |
 | X-10b | P-10 | P-10 | Failing test | Fixture cut missed the record under test | Test could not pass | Re-cut fixture | Resolved |
+| X-11a | P-11 | P-11 | Capture output | Live-file tar warning aborted the rename | Capture in wrong layout | Tolerate exit 1 | Resolved |
+| X-11b | P-10 | P-11 | Baseline review | Rates over log window, not capture window | Rates ~150x too high | Window across all sources | Resolved |
 
 ## Decision register
 

@@ -1,0 +1,8 @@
+tar: SSTCAM/monitoring/monitoring_2026-09-28.bin: file changed as we read it
+exported 63784 messages
+1.2M	journal.jsonl
+4.0K	manifest.json
+112M	monitoring.jsonl
+ 80M	SSTCAM
+4.0K	units.txt
+done
