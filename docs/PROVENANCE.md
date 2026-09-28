@@ -23,6 +23,7 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-07](#p-07--simulator-m1) | 2026-09-28 | M1 simulator | Seeded scenarios with ground-truth labels; v0 counter says 112 errors on a night with 0 | M1 commit |
 | [P-08](#p-08--real-camera-server-observability) | 2026-09-28 | Real observability summary | Invented format found; three data tiers proposed | — |
 | [P-09](#p-09--camera-in-a-box-tier-b-infrastructure) | 2026-09-28 | camera-in-a-box | Real camera software on mocks under systemd; 9 findings about the real system, 3 upstream build bugs | lab commit |
+| [P-10](#p-10--collectors-for-the-real-formats) | 2026-09-28 | Collectors | Parsers for logs, journal, monitoring; capture summary; tracebacks only in journal; central log misses boot | collect commit |
 
 ---
 
@@ -265,6 +266,31 @@ The last row is the strongest evidence for [ADR-0002](adr/0002-deterministic-det
 
 ---
 
+## P-10 · Collectors for the real formats
+
+**Goal.** Parse everything one camera writes into one entry model with citable references, and summarise a capture so that "normal" is measured, not assumed.
+
+**Method.** A second camera (`cam-02`) was used for experiments so the baseline on `cam-01` stayed untouched. Three faults were injected by hand: slow-signal packets set to `random` (sensor-fault flood), `SIGKILL` on the chiller, and the calibration file hidden for about 10 s. The parsers were written against that output; the test fixtures are small cuts of it.
+
+**Done.** `src/shiftassist/collect/`: `Entry` (with `ref = source:line` as the citation handle) and `Sample`; parsers for the pipe and central formats (multi-line records reassembled; the separator may occur inside messages); a journal parser (systemd lifecycle events classified; stdout continuation lines attached to their record; tracebacks reassembled per PID); a monitoring flattener; and `shiftassist-collect summarise <capture>` → `SUMMARY.md`. 14 tests on real fixtures. The full cam-02 capture (235k log lines, 198k journal records) parses in ~3 s.
+
+**Findings about the real system (continued)**
+
+| # | Finding | Consequence for the assistant |
+|---|---|---|
+| R10 | **Crash tracebacks reach only the journal.** Uncaught exceptions go to stderr: not to the per-process file, not to the central log. In the journal they arrive one line per record, at priority INFO | A collector that reads only log files sees a process vanish and restart *without a reason*. Tracebacks must be reassembled and re-levelled |
+| R11 | **The central log misses the startup of every server that starts before the gatherer listens** (7 of 7 servers at boot, 16–93 records each: the config banner, IDs, versions). Units use `After=sstcam-gatherer`, but the gatherer is `Type=simple`, so "started" means "process exists", not "socket ready" | "Which config did it load?" cannot be answered from the central log. Read per-process files; upstream fix: `Type=notify` or a readiness check |
+| R12 | **The gatherer's own per-process file is a full second copy of the central log** (every record forwarded to it is also written to its local file) | 2× storage; the collector must skip that file or de-duplicate |
+| R7 ✔ | Reproduced as an incident: after the chiller was killed and restarted, it sent **no monitoring for the rest of the run** (22 messages vs 114 from slowboard), with no log line saying so | Detect missing monitoring per subsystem; a restart without a following `connect` is suspect |
+| R13 | In `random` packet mode the slow-signal module slot field is random too: 253 distinct "modules" for 32 real ones | The flood fault also corrupts identity fields; label it as such |
+
+**Failures / dead ends (mine)**
+- **X-10a** The first journal parser produced 153k one-line "stdout" entries. journald stores each continuation line of a multi-line record as a separate record, and those were not attached. Found by counting entry kinds; fixed by grouping per PID.
+- **X-10b** A test fixture was cut too narrowly and missed the restart record it was meant to test. The test failed for the right reason; fixed the fixture, not the test.
+- **X-10c** mypy caught a variable name reused for strings in one loop and datetimes in another, in the report renderer.
+
+---
+
 ## Failure register
 
 Every failure in one table, with how it was found and where it was resolved. "Found by" matters: a failure found by a test or a measurement is worth more than one found by reading.
@@ -283,6 +309,8 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-09b | P-09 | P-09 | Journal | Guessed class name; launcher crash-looped slowsignal | 1 iteration | Looked up symbol | Resolved |
 | X-09d | P-09 | P-09 | Review of build log | Config token printed into build log | Secret in a local log | Redaction; log cleaned | Resolved |
 | X-09e | P-09 | P-09 | Measurement | Offline test could not detect the warnings it was meant to count | False "no difference" | Measured in the running server | Resolved |
+| X-10a | P-10 | P-10 | Counting entry kinds | Journal continuation lines became 153k separate entries | Multi-line records split | Group per PID | Resolved |
+| X-10b | P-10 | P-10 | Failing test | Fixture cut missed the record under test | Test could not pass | Re-cut fixture | Resolved |
 
 ## Decision register
 

@@ -1,0 +1,17 @@
+26-09-28T18:25:45.233 INFO /opt/sstcam/venv/lib64/python3.12/site-packages/sstcam_configuration/logger.py 129 configure_loggers GATHERER-SERVER Developer Logging to local file: /data/SSTCAM/logs/log_20260928T182545_sstcam_gatherer_serve.txt
+26-09-28T18:25:45.233 INFO /opt/sstcam/venv/lib64/python3.12/site-packages/sstcam_configuration/logger.py 131 configure_loggers GATHERER-SERVER Developer Logging to central file dir: /data/SSTCAM/logs
+26-09-28T18:25:45.233 INFO /opt/sstcam/venv/lib64/python3.12/site-packages/sstcam_configuration/logger.py 133 configure_loggers GATHERER-SERVER Developer Configuration logged to: /data/SSTCAM/logs/config_20260928T182545.yml
+26-09-28T18:25:45.233 INFO /opt/sstcam/venv/lib64/python3.12/site-packages/sstcam_configuration/logger.py 156 configure_loggers GATHERER-SERVER Developer Configuration source: LOCAL_DB
+26-09-28T18:26:05.288 WARNING /home/sstcam/miniforge3/envs/sstcam/lib64/python3.12/site-packages/sstcam_slowsignal/utils/conversions.py 215 convert_spi_temp SLOWSIGNAL-SERVER Developer Hardware error detected:
+Sensor Hard Fault : Open or Short RTD or RSENSE
+Hard ADC-Out-of-Range : Bad ADC Reading (Could Be Large External Noise Event)
+Sensor Over Range : T > High Temp Limit (850°C)
+ADC Out-of-Range : ADC Absolute Input Voltage Is Beyond ±1.125 • VREF/2
+Temperature value not valid
+26-09-28T18:26:05.289 WARNING /home/sstcam/miniforge3/envs/sstcam/lib64/python3.12/site-packages/sstcam_slowsignal/utils/conversions.py 215 convert_spi_temp SLOWSIGNAL-SERVER Developer Hardware error detected:
+Sensor Hard Fault : Open or Short RTD or RSENSE
+Hard ADC-Out-of-Range : Bad ADC Reading (Could Be Large External Noise Event)
+Temperature value not valid
+26-09-28T18:26:05.290 WARNING /home/sstcam/miniforge3/envs/sstcam/lib64/python3.12/site-packages/sstcam_slowsignal/utils/conversions.py 215 convert_spi_temp SLOWSIGNAL-SERVER Developer Hardware error detected:
+Sensor Hard Fault : Open or Short RTD or RSENSE
+Hard ADC-Out-of-Range : Bad ADC Reading (Could Be Large External Noise Event)

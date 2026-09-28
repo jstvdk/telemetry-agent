@@ -1,0 +1,22 @@
+26-09-28 18:25:47 | INFO     | CHILLER-CLI         | sstcam_configuration | SETUP                    | Logging to local file: /data/SSTCAM/logs/log_20260928T182547_sstcam_chiller_connect.txt
+26-09-28 18:25:47 | INFO     | CHILLER-CLI         | sstcam_configuration | SETUP                    | Logging to socket: ('127.0.0.1', 60000)
+26-09-28 18:25:47 | INFO     | CHILLER-CLI         | sstcam_configuration | SETUP                    | Configuration source: LOCAL_DB
+26-09-28 18:25:47 | INFO     | CHILLER-CLI         | sstcam_configuration | SETUP                    | Configuration origin: LOCAL_DB
+26-09-28 18:25:47 | INFO     | CHILLER-CLI         | sstcam_configuration | SETUP                    | Configuration server ID: 0 (CHEC1)
+26-09-28 18:25:47 | INFO     | CHILLER-CLI         | sstcam_configuration | SETUP                    | Configuration camera unit ID: 1 (ECAMi)
+26-09-28 18:25:47 | INFO     | CHILLER-CLI         | sstcam_configuration | SETUP                    | Configuration chiller ID: 0 (chiller0)
+26-09-28 18:25:47 | INFO     | CHILLER-CLI         | sstcam_configuration | SETUP                    | Configuration TM|SIPM|FPE IDs: 00:  15 | 70430001 |    3 01:  51 | 70430034 |    2 02:  30 | 70430033 |   40 03:  35 | 70430066 |   10
+26-09-28 18:25:47 | INFO     | CHILLER-CLI         | sstcam_configuration | SETUP                    | Configuration TM|SIPM|FPE IDs: 04:  31 | 70430021 |   23 05:  16 | 70430007 |   29 06:  50 | 70430028 |   39 07:  47 | 70430040 |   35
+26-09-28 18:26:05 | WARNING  | SLOWSIGNAL-SERVER   | sstcam_slowsignal    | Slow Signal Data         | Hardware error detected:
+Sensor Hard Fault : Open or Short RTD or RSENSE
+Hard ADC-Out-of-Range : Bad ADC Reading (Could Be Large External Noise Event)
+Sensor Over Range : T > High Temp Limit (850°C)
+ADC Out-of-Range : ADC Absolute Input Voltage Is Beyond ±1.125 • VREF/2
+Temperature value not valid
+26-09-28 18:26:05 | WARNING  | SLOWSIGNAL-SERVER   | sstcam_slowsignal    | Slow Signal Data         | Hardware error detected:
+Sensor Hard Fault : Open or Short RTD or RSENSE
+Hard ADC-Out-of-Range : Bad ADC Reading (Could Be Large External Noise Event)
+Temperature value not valid
+26-09-28 18:26:05 | WARNING  | SLOWSIGNAL-SERVER   | sstcam_slowsignal    | Slow Signal Data         | Hardware error detected:
+Sensor Hard Fault : Open or Short RTD or RSENSE
+Hard ADC-Out-of-Range : Bad ADC Reading (Could Be Large External Noise Event)
