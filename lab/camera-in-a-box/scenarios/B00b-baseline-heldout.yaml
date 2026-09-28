@@ -1,0 +1,6 @@
+id: B00b
+title: Second clean baseline (held-out, for false-alarm rate)
+description: No faults. 45 min of a healthy camera, never used for tuning; measures the false-alarm rate.
+settle: 0s
+cooldown: 45m
+faults: []

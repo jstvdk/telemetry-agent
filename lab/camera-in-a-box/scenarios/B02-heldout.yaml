@@ -1,0 +1,19 @@
+id: B02
+title: Held-out fault set (different modules, units, magnitudes, order)
+description: >
+  Written before the first detector, never used to tune it. Same fault types as B01 with
+  different parameters, plus one deliberately hard case: a slow drift (1.5 °C/h for 6 min,
+  ~0.15 °C) of the same order as the shared ambient variation.
+settle: 3m
+cooldown: 3m
+faults:
+  - {kind: process_crash, at: 3m, unit: slowboard, hold: 90s}
+  - {kind: sensor_fault, at: 6m, module: 3, sensors: [preamp], hold: 2m}
+  - {kind: process_hang, at: 9m30s, unit: chiller, hold: 60s}
+  - {kind: module_dead, at: 12m, module: 20, hold: 90s}
+  - {kind: slowsignal_drift, at: 15m, module: 25, sensors: [prim_asics], slope_c_per_h: 4, hold: 6m}
+  - {kind: process_crash, at: 22m, unit: slowsignal, hold: 30s}
+  - {kind: chiller_ramp, at: 25m, to_c: 27, over: 6m, hold: 1m}
+  - {kind: process_hang, at: 33m, unit: gatherer, hold: 60s}
+  - {kind: calibration_missing, at: 36m, hold: 45s}
+  - {kind: slowsignal_drift, at: 40m, module: 9, sensors: [sipm3], slope_c_per_h: 1.5, hold: 6m}
