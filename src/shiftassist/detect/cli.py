@@ -22,6 +22,11 @@ def main(argv: list[str] | None = None) -> int:
     a_run.add_argument("-p", "--profile", required=True)
     a_sc = sub.add_parser("score", help="score <capture>/events.jsonl against its labels")
     a_sc.add_argument("capture")
+    a_sc.add_argument(
+        "--only-validated",
+        action="store_true",
+        help="drop expected events whose evidence is absent (collect verify-labels)",
+    )
     a = p.parse_args(argv)
 
     if a.cmd == "profile":
@@ -55,6 +60,23 @@ def main(argv: list[str] | None = None) -> int:
     ]
     c = Capture(cap)
     labels = c.labels() if (cap / "labels.jsonl").exists() else []
+    if a.only_validated and labels:
+        from shiftassist.collect.evidence import verify
+
+        bad = {(ch.label_id, ch.event.model_dump_json()) for ch in verify(cap) if ch.found is False}
+        labels = [
+            lb.model_copy(
+                update={
+                    "expected_events": [
+                        e
+                        for e in lb.expected_events
+                        if (lb.label_id, e.model_dump_json()) not in bad
+                    ]
+                }
+            )
+            for lb in labels
+        ]
+        print(f"excluded {len(bad)} expected event(s) without evidence in the data")
     first, last = c.span
     s = score(cap.name, events, labels, (last - first).total_seconds() / 3600)
     md = render(s)

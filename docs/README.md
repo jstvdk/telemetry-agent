@@ -14,5 +14,6 @@ This folder records how the project was designed, not just what the code does. R
 | 06 | [v0 spike review](06-v0-spike-review.md) | An honest review of the first prototype, with measured defects |
 | 07 | [Delivery plan](07-delivery-plan.md) | Milestones, exit criteria, and the demo script |
 | — | [**Provenance**](PROVENANCE.md) | Dated log of every step, decision and failure, with evidence |
+| — | [**Results**](results.md) | Measured detector numbers on dev and held-out data, with caveats |
 
 **Status legend** used throughout: ✅ implemented · 🔨 in progress · 📐 designed, not built yet.

@@ -27,6 +27,8 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-11](#p-11--clean-baseline-30-min-one-camera) | 2026-09-28 | Clean baseline | 30 min, 0 restarts; healthy camera writes no logs; mock channels flat; slow-signal mock constant | baseline commit |
 | [P-12](#p-12--realistic-slow-signal-model-and-the-fault-harness) | 2026-09-28 | Slow-signal model + fault harness | 9 fault types into the real software, always reverted, labelled; I2C negative-temperature decode bug | harness commit |
 | [P-13](#p-13--first-labelled-fault-run-b01-and-label-validation) | 2026-09-28 | First labelled run + label validation | 18/18 label evidence found; negative control 0/11 | validation commit |
+| [P-14](#p-14--detector-v0-dev-set) | 2026-09-28 | Detector v0 on dev set | 18/18 after two design fixes; frozen as `detector-v0` | `detector-v0` |
+| [P-15](#p-15--held-out-evaluation) | 2026-09-29 | Held-out evaluation | 15/16 recall, 0 false alarms (B02); 1.3 false alarms/h (B00b) | results commit |
 
 ---
 
@@ -396,6 +398,63 @@ What the faults actually did (measured, not assumed):
 
 ---
 
+## P-14 · Detector v0 (dev set)
+
+**Goal.** A deterministic detector (ADR-0002): thresholds learned from a clean capture, rules that never read labels, events with IDs and code-written evidence.
+
+**Method.** Held-out data was separated *before* any detector code: scenarios B02 (10 faults, new modules, units, magnitudes, order, plus a hard slow drift) and B00b (45-min clean run) were committed first (`ea6ac47`), and the runs started. B01 was the dev set; it had already been inspected during label validation.
+
+**Done.** `src/shiftassist/detect/`: profile (per-source cadence, per-channel slope thresholds = max baseline |slope| x 1.5 with a floor, WARNING rates, known templates); rules R-GAP-01, R-RST-01, R-TB-01, R-BURST-01, R-SIG-01, R-TRD-01/02; scorer (recall any/exact module, strict/lenient precision, false alarms per hour, delay). 5 rule tests on synthetic captures. Frozen and tagged `detector-v0` before the held-out captures were written.
+
+**Dev results (B01).** First run: recall 78 %, 214 events, strict precision 7 %. After the two fixes below: recall 18/18, exact 17/18, 23 events, 0 false alarms; B00 on itself 0 events.
+
+**Decisions**
+- **D-14a Held-out data is committed before the code it will evaluate, and the code is tagged before the held-out data exists.** The git history is the evidence.
+- **D-14b Slow-signal trends are computed on each module's deviation from the camera-wide median**, after centring every module on its own median, so shared ambient changes and module drop-outs do not look like drifts.
+- **D-14c Events are stamped at detection time**, the time an online system could have known, not at the start of the analysis window.
+- **D-14d Labels are not edited after seeing detector output.** The chiller ramp moves all four chiller temperatures, but B01/B02 labels list two; the catalog is fixed for future runs, and past labels stay as recorded.
+
+**Failures / dead ends (mine)**
+- **X-14a Trend events stamped at the window start** (up to 3 min before the drift began) could not match any label: trend recall 0/4 with the right signal present. Found by comparing event times with label windows.
+- **X-14b 193 false trend events across all modules.** When one module stopped sending, the raw cross-module median shifted by a fraction of the module-offset spread, a step that looked like a slope on every other module. Fixed by centring (D-14b); a regression test was verified by mutation (it fails when the centring is removed).
+- **X-14c Incomplete label:** the chiller ramp label listed 2 of the 4 temperatures the fault moves (D-14d).
+
+---
+
+## P-15 · Held-out evaluation
+
+**Result** (full table and caveats: [results.md](results.md))
+
+| data | recall (conservative) | exact module | events | false alarms |
+|---|---:|---:|---:|---:|
+| B02 (held-out, 10 faults) | **15/16** validated expected events | 14/16 | 21 | **0** |
+| B00b (held-out, clean, 46 min) | – | – | 1 | **1.3 per hour** |
+
+The hard drift (1.5 °C/h, ~0.15 °C in 6 min) was detected after 131 s.
+
+**Findings**
+
+| # | Finding | Consequence |
+|---|---|---|
+| R20 | **A frozen gatherer loses no monitoring.** Publishers keep sending, the messages queue, and the gatherer writes them when it resumes, with the original source timestamps (61/61 messages per 1 Hz source in a 62 s freeze; slow-signal at its full 31.7/s, with at most a 16 s silence on some module) | A gatherer hang is not visible as a monitoring gap after the fact. It is visible as late arrival (write time vs. message timestamp) and in the gatherer's own logs. The catalog's expectation for `process_hang gatherer` was wrong |
+
+**Decisions**
+- **D-15a Score against validated expectations only.** `shiftassist-detect score --only-validated` drops expected events whose evidence is absent in the data (label validation, D-13a), and reports how many. Unvalidated numbers are published alongside.
+- **D-15b Conservative reading over scorer output:** one B02 match that the scorer credited belongs to an adjacent fault, so it is counted as a miss.
+
+**Failures / dead ends**
+- **X-15a (mine) Wrong label:** `process_hang gatherer` was labelled with gaps on all four sources; 3 of 4 had no gap (R20). Caught by label validation before scoring.
+- **X-15b (mine) Scorer double attribution:** with overlapping fault windows, one event could satisfy two labels. Found by reading the per-event table; to be fixed so that one event is credited to one label.
+- **X-15c False alarm on held-out clean data:** chiller trend +3.87 °C/h vs threshold 3.86 °C/h. The threshold (max of a 31-min baseline x 1.5) is too tight for longer runs. Not tuned after seeing it; left for the next detector version.
+
+**Next**
+1. Scorer: one event, one label.
+2. Thresholds from a longer baseline / tail quantiles; re-measure false alarms per hour on a new held-out clean run.
+3. `process_hang gatherer`: detect late arrival instead of gaps.
+4. LLM layer on top of the event timeline: explain and correlate, with citations validated against event IDs.
+
+---
+
 ## Failure register
 
 Every failure in one table, with how it was found and where it was resolved. "Found by" matters: a failure found by a test or a measurement is worth more than one found by reading.
@@ -420,6 +479,11 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-11b | P-10 | P-11 | Baseline review | Rates over log window, not capture window | Rates ~150x too high | Window across all sources | Resolved |
 | X-12a | P-10 | P-12 | KeyError in per-module check | Exporter dropped default-valued protobuf fields (slot 0, zeros) | Module 0 and zero readings invisible | Always print fields | Resolved |
 | X-13a | P-13 | P-13 | Negative control | Windows past the capture end counted as silence | 4 false gaps | Inconclusive outcome | Resolved |
+| X-14a | P-14 | P-14 | Event vs label times | Trend events stamped at window start | Trend recall 0/4 | Detection-time stamps | Resolved |
+| X-14b | P-14 | P-14 | Event counts | Median shift when a module dropped out | 193 false trends | Centred common mode + regression test | Resolved |
+| X-15a | P-12 | P-15 | Label validation | Gatherer hang labelled as gaps; data is buffered, not lost | 3 invalid expected events | Excluded; catalog to fix | Open |
+| X-15b | P-14 | P-15 | Reading per-event table | Scorer can credit one event to two overlapping labels | Recall overstated by 1 | Counted as miss; fix scorer | Open |
+| X-15c | P-14 | P-15 | Held-out clean run | Threshold from short baseline too tight | 1.3 false alarms/h | Longer baseline / tail threshold | Open |
 
 ## Decision register
 
@@ -443,6 +507,9 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | D-08a | Three data tiers, one label format | P-08 | ADR pending |
 | D-12a | Faults change the situation, never the logs | P-12 | [lab README](../lab/camera-in-a-box/README.md) |
 | D-13a | Labels validated against data + negative control before scoring | P-13 | this file |
+| D-14a | Held-out committed before code; code tagged before held-out data | P-14 | [results](results.md) |
+| D-14d | Labels are not edited after seeing detector output | P-14 | this file |
+| D-15a | Score against validated expectations; publish unvalidated too | P-15 | [results](results.md) |
 
 ---
 
