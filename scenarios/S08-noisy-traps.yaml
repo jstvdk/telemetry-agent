@@ -1,0 +1,13 @@
+id: S08
+title: Noisy but healthy
+description: >
+  No faults, but six harmless WARNINGs per hour and trap lines five times as often.
+  Substring matching on ERROR/WARN gives large, wrong counts here (v0 finding F1).
+seed: 108
+start: 2026-10-14T22:00:00Z
+duration: 4h
+cameras: [cam-01]
+noise:
+  benign_warnings_per_hour: 6
+  trap_multiplier: 5
+faults: []

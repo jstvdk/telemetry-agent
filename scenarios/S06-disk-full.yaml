@@ -1,0 +1,14 @@
+id: S06
+title: Data disk fills up
+description: >
+  Disk usage climbs to 100% over 40 minutes; DAQ writes fail with ENOSPC and the event
+  rate drops to zero until a cleanup job frees space. Tests a multi-step causal chain.
+seed: 106
+start: 2026-10-14T22:00:00Z
+duration: 5h
+cameras: [cam-01]
+faults:
+  - kind: disk_full
+    at: 3h
+    fill_duration: 40m
+    stall: 10m

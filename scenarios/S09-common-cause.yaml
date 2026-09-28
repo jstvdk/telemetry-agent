@@ -1,0 +1,14 @@
+id: S09
+title: Same fault on three cameras
+description: >
+  All three cameras lose their link within 20 seconds of each other. Per-camera
+  detection sees three gaps; the right answer is one common cause (network).
+seed: 109
+start: 2026-10-14T22:00:00Z
+duration: 3h
+cameras: [cam-01, cam-02, cam-03]
+faults:
+  - kind: network_drop
+    at: 1h30m
+    duration: 3m
+    jitter: 20s

@@ -20,7 +20,8 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-04](#p-04--spike-review) | 2026-09-28 | Spike review | 17 findings, 3 high severity, measured | docs commit |
 | [P-05](#p-05--design-documentation) | 2026-09-28 | Design docs | Rationale, requirements, architecture, 8 ADRs, eval + test plan | docs commit |
 | [P-06](#p-06--repository-foundations-m0) | 2026-09-28 | M0 repo foundations | git, packaging, baseline/, CI | M0 commit |
-| [P-07](#p-07--simulator-m1) | 2026-09-28 | M1 simulator | Seeded scenarios with ground-truth labels | M1 commits |
+| [P-07](#p-07--simulator-m1) | 2026-09-28 | M1 simulator | Seeded scenarios with ground-truth labels; v0 counter says 112 errors on a night with 0 | M1 commit |
+| [P-08](#p-08--real-camera-server-observability) | 2026-09-28 | Real observability summary | Invented format found; three data tiers proposed | — |
 
 ---
 
@@ -154,7 +155,9 @@ A dated record of how this project was built: every step, the decisions taken at
 - **D-06c uv + `pyproject.toml`, Python 3.12**, `src/` layout. 3.12 rather than the machine's 3.14: wide wheel availability for `pyzmq` and scientific packages, and pinned by uv, so it doesn't depend on the host Python.
 - **D-06d v0 moves to `baseline/`** unchanged apart from the move; runnable as before.
 
-*(Failures and evidence for P-06 and P-07 are recorded below as the work happens.)*
+**Failures / dead ends.** None.
+
+**Evidence.** Commit `build: M0 foundations`; `uv sync` resolves on Python 3.12.8; `make test` runs in CI.
 
 ---
 
@@ -162,7 +165,50 @@ A dated record of how this project was built: every step, the decisions taken at
 
 **Goal.** Seeded scenarios that generate logs and telemetry with ground-truth labels, on the same ZMQ interface v0 used.
 
-*(in progress)*
+**Done.** `src/shiftassist/sim/`: pydantic scenario model with one class per fault kind (unknown kinds and misspelled parameters fail at load time); a generator with integer-millisecond simulated time and an independent seeded RNG per component; seven fault injectors that each write their own label; JSONL output + manifest with SHA-256; ZMQ publisher; CLI. Scenarios S01–S10. 63 tests.
+
+**Decisions**
+- **D-07a Ground truth comes from the injector, not from analysing the output.** Each injector writes the label for exactly what it changed, including the detection events it expects (`kind`, `subsystem`, `near`, `tolerance_s`).
+- **D-07b Expected events are described by kind, camera and time, not by event ID**, so labels stay valid when the detector changes.
+- **D-07c Fault log lines are never suppressed by blackouts; nominal lines are.** Without this, a network drop would delete the crash traceback that explains it.
+- **D-07d Trap lines are part of the nominal background** (`error_count=0`, `NO_ERROR`, `ERROR_LATCH clear`), so every scenario tests against the v0 failure mode.
+- **D-07e Distractors get labels too** (`kind: distractor`, no expected events), so the eval can ask "did X cause Y?" and score a *no*.
+- **D-07f Labels hold the whole common-cause group** (`group` field), so S09 can score array-level correlation.
+
+**Failures / dead ends**
+- **X-07a The first HV-trip ramp never crossed the limit in telemetry.** The ramp peaked exactly at the trip time, but the last 10 s sample before it only reached ~140 µA < 150 µA. Found by reasoning about the sampling grid while writing the test. Fixed by peaking one sample earlier; `test_hv_trips` now asserts that telemetry actually crosses the limit.
+- **X-07b The simulator's log format and transport were invented, not taken from the real system.** It was built as a single ZMQ stream of `ts LEVEL camera subsystem: text` lines. The real camera server writes per-process log files in a pipe-separated format, a central log in an ICD-defined format, systemd journal entries for restarts, and binary protobuf monitoring (P-08). Found by domain input *after* M1 was built. **Lesson: ask for the real output format before building a simulator of it.** Impact is limited: scenarios, injectors and labels are independent of the rendering, which is the part that changes.
+
+**Evidence** (all reproducible with `make sim SCENARIO=…`)
+
+| Check | Result |
+|---|---|
+| Same seed, two runs (S03) | byte-identical `stream.jsonl`, `labels.jsonl`, `manifest.json` |
+| S03 at 01:50 / 02:13 | config reload `buffer_size=4096 (was 8192)` → traceback `BufferSizeMismatch` at 02:13:00 → exit 02:13:01 → supervisor restart 02:13:40; trigger rate 0 only during 02:13:00–02:13:30 |
+| S02 plate temperature slope (least squares after drift start) | 0.8 ± 0.05 °C/h |
+| **v0 `count_keywords` fed the simulated stream through the v0 collector logic** | **S01: ERROR = 112, true ERROR/CRITICAL lines = 0.** S08: 88 vs. 0. S04: 86 vs. 2 |
+
+The last row is the strongest evidence for [ADR-0002](adr/0002-deterministic-detection-llm-for-language.md): on a completely healthy night, the v0 tool tells the model there were 112 errors.
+
+---
+
+## P-08 · Real camera-server observability
+
+**Goal.** Replace invented formats with the real ones (X-07b), without putting institutional code or details in the public repo.
+
+**Input.** A private summary of how the real camera-server software logs and monitors, and which subsystems have mocks (kept in `internal_docs/`, git-ignored). The summary was produced by an automated read-only pass and is marked by its author as not line-by-line verified.
+
+**What changes (public-safe summary)**
+- Logs are **plain text in several places**: per-process files, a central consolidated file with a standard-defined format, and the systemd journal (process restarts via `Restart=on-failure`). The collector must **tail files and the journal**, not only subscribe to a stream.
+- Monitoring is **binary protobuf in daily-rotated files**, optionally mirrored to a time-series DB. The collector needs a monitoring adapter.
+- There are **no correlation IDs**. Linking events across processes must use time, process name and logger context, and that is a job for the timeline and the LLM layer.
+- Several subsystems have **working mocks with override hooks** (e.g. setting a reported temperature). Faults can therefore be injected into the *real* software, which then writes its *real* log lines. That is more realistic than any synthetic template.
+- Some subsystems have **no mock at all**. Faults there can only come from recorded real incidents or synthetic templates.
+
+**Decisions** *(proposed, pending the author's confirmation)*
+- **D-08a Three data tiers with one label format:** (A) fully synthetic, public, CI; (B) live fault injection against the real mock stack on a lab machine, private; (C) replay + splice of tier-B recordings, private, for volume and variation. The eval harness does not change between tiers.
+- **D-08b Rendering becomes a pluggable dialect.** The public repo ships the generic dialect; the lab dialect lives outside the public repo.
+- **D-08c The real source code is not read** by the assistant until the data-policy question on that has an answer. Formats are taken from captured **output** (log files, journal export) instead.
 
 ---
 
@@ -175,9 +221,11 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-00a | P-00 | P-01 | Design review | Scope included actions, 6 agents, 5 external systems | Unbuildable, untestable | Scope cuts D-01a…D-01c | Resolved |
 | X-01a | P-01 | P-01 | Self-assessment | No hands-on data on cost or effort | Estimates were guesses | Learning spike P-02/P-03 | Resolved |
 | X-03a | P-03 | P-04 | Measurement | Substring keyword counts (3 vs. 1) | Confident wrong numbers | Levels as fields + deterministic events (M2); test T-DET-06 | Open → M2 |
-| X-03b | P-03 | P-04 | Review | External stream; no ground truth | Not reproducible or scorable | Simulator (M1) | Open → M1 |
+| X-03b | P-03 | P-04 | Review | External stream; no ground truth | Not reproducible or scorable | Simulator (M1) | Resolved (tier A) |
 | X-03c | P-03 | P-04 | Review | Tool schemas in 3 places, already drifting | Agent and MCP results not comparable | Single registry (M3) | Open → M3 |
 | X-04a | P-03 | P-04 | Review | Eval: manual scoring, k=1, cost NaN | No trustworthy numbers | Eval harness (M4) | Open → M4 |
+| X-07a | P-07 | P-07 | Test design | HV-trip ramp peaked between samples; telemetry never crossed the limit | Detection test would have been meaningless | Peak one sample earlier; test asserts crossing | Resolved |
+| X-07b | P-07 | P-08 | Domain input | Simulator format and transport invented, not matched to the real system | Collector/detection would be tuned to a format that does not exist | Dialects + tiers B/C (D-08a, D-08b) | Open → M1b |
 
 ## Decision register
 
@@ -196,6 +244,9 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | D-05a | Single tool registry | P-05 | [ADR-0006](adr/0006-single-tool-registry-mcp.md) |
 | D-05c | pass^k as headline reliability | P-05 | [04 §1](04-evaluation.md#layer-6--consistency) |
 | D-05d | Judge calibration before use | P-05 | [04 §1](04-evaluation.md#layer-3--answer-quality-scored-by-question-type) |
+| D-07a | Injector writes its own label | P-07 | [ADR-0004](adr/0004-synthetic-simulator-as-ground-truth.md) |
+| D-07b | Expected events by kind/camera/time, not ID | P-07 | [04 §2](04-evaluation.md#2-dataset) |
+| D-08a | Three data tiers, one label format (proposed) | P-08 | ADR pending |
 
 ---
 

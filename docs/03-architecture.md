@@ -55,7 +55,7 @@ flowchart LR
 
 | Layer | Component | Responsibility | Status |
 |---|---|---|---|
-| Sources | **Simulator** | Generates logs + telemetry for scripted scenarios, publishes on ZMQ, writes ground-truth labels | 📐 ([ADR-0004](adr/0004-synthetic-simulator-as-ground-truth.md)) |
+| Sources | **Simulator** | Generates logs + telemetry for scripted scenarios, publishes on ZMQ, writes ground-truth labels | ✅ tier A synthetic; 🔨 real-format dialect ([ADR-0004](adr/0004-synthetic-simulator-as-ground-truth.md)) |
 | Core | **Collector** | Subscribe, parse, store with source timestamp (UTC), camera, subsystem, level | ✅ v0 (raw text only) → 🔨 |
 | Core | **Detection** | Limit rules, rate-of-change, heartbeat gaps, restarts, config changes, tracebacks, new signatures → events | 📐 ([ADR-0002](adr/0002-deterministic-detection-llm-for-language.md)) |
 | Core | **Timeline** | SQLite tables for raw messages, telemetry and events | ✅ v0 (one table) → 🔨 |

@@ -1,0 +1,17 @@
+id: S04
+title: Two HV trips
+description: >
+  HV channel 3 trips on overcurrent twice and ramps back up each time. Tests limit
+  detection with recovery, and counting ("how many HV trips tonight?").
+seed: 104
+start: 2026-10-14T22:00:00Z
+duration: 6h
+cameras: [cam-01]
+faults:
+  - kind: hv_trip
+    at: 1h10m
+    channel: 3
+  - kind: hv_trip
+    at: 3h40m
+    channel: 3
+    peak_current_ua: 158.0

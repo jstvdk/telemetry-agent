@@ -1,0 +1,10 @@
+id: S01
+title: Nominal night
+description: >
+  Eight quiet hours. Background chatter only, including trap lines (error_count=0,
+  NO_ERROR) and a few harmless WARNINGs. Tests false alerts and "nothing is wrong" answers.
+seed: 101
+start: 2026-10-14T22:00:00Z
+duration: 8h
+cameras: [cam-01]
+faults: []

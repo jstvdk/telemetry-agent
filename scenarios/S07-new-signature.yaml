@@ -1,0 +1,12 @@
+id: S07
+title: Never-seen error
+description: >
+  An FPGA readback error that appears nowhere in the runbook or history, three times.
+  Tests new-signature detection and an honest "unknown cause" answer.
+seed: 107
+start: 2026-10-14T22:00:00Z
+duration: 4h
+cameras: [cam-01]
+faults:
+  - kind: new_signature
+    at: 2h30m

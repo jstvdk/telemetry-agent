@@ -1,0 +1,16 @@
+id: S03
+title: Config reload breaks the readout
+description: >
+  The worked example from the design docs. At 01:50 a config reload sets a buffer size
+  smaller than the frame; at 02:13 the readout worker crashes with a traceback and is
+  restarted. A harmless temperature wiggle three minutes before the crash is a distractor.
+seed: 103
+start: 2026-10-14T22:00:00Z
+duration: 5h
+cameras: [cam-01]
+faults:
+  - kind: config_reload_crash
+    at: 3h50m
+    crash_after: 23m
+    restart_after: 40s
+    distractor: true

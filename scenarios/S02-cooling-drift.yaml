@@ -1,0 +1,14 @@
+id: S02
+title: Slow cooling drift
+description: >
+  Coolant flow degrades from 23:00; plate temperature rises 0.8 °C/h and never crosses a
+  hard limit during the night. Detectable only as a trend. Tests features vs. raw data.
+seed: 102
+start: 2026-10-14T22:00:00Z
+duration: 6h
+cameras: [cam-01]
+faults:
+  - kind: cooling_drift
+    at: 1h
+    slope_c_per_h: 0.8
+    flow_drop_lpm: 0.5

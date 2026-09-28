@@ -1,0 +1,13 @@
+id: S05
+title: Network drop
+description: >
+  The camera loses its network link for four minutes: every log and telemetry stream
+  stops at once. Tests gap detection and recognising one common cause.
+seed: 105
+start: 2026-10-14T22:00:00Z
+duration: 4h
+cameras: [cam-01]
+faults:
+  - kind: network_drop
+    at: 2h
+    duration: 4m

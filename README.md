@@ -9,7 +9,8 @@ A prototype **operator assistant** for a telescope camera. It watches logs and t
 | Stage | State |
 |---|---|
 | v0 learning spike: MCP server, bare agent loop, token logging (files in the repo root) | ✅ done, [reviewed](docs/06-v0-spike-review.md) |
-| v1 vertical slice: simulator → detection → event timeline → tools → agent → validator → eval | 📐 designed, [plan](docs/07-delivery-plan.md) |
+| v1 simulator: 10 seeded fault scenarios with ground-truth labels (`make sim SCENARIO=S03`) | ✅ M1 |
+| v1 rest of the slice: detection → event timeline → tools → agent → validator → eval | 📐 designed, [plan](docs/07-delivery-plan.md) |
 | Experiments: architecture vs. model, hosted vs. local models | 📐 [designed](docs/04-evaluation.md) |
 
 ## How it is designed
