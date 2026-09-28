@@ -367,7 +367,9 @@ class ModuleDead(_SlowSignalFault):
 
 class ChillerRamp(FaultBase):
     """Chiller temperatures ramp linearly to ``to_c`` over ``over``, stay for ``hold``, and the
-    override is cleared (the mock treats 0 as 'no override')."""
+    override is cleared (the mock treats 0 as 'no override'). The override moves all four
+    reported temperatures, so all four are expected to trend (B01/B02 labels, written before this
+    was noticed, list only supply and return; they are kept as recorded)."""
 
     kind: Literal["chiller_ramp"]
     to_c: float = 30.0
@@ -400,7 +402,7 @@ class ChillerRamp(FaultBase):
                 seconds(self.over) / 2 + 30,
                 channel=f"{c}_temperature",
             )
-            for c in ("supply", "return")
+            for c in ("supply", "return", "heater", "heat_exchanger")
         ]
 
     def root_cause(self) -> str:

@@ -1,0 +1,331 @@
+{
+  "learned_from": "B00-20260928T222149",
+  "duration_s": 1873.264702,
+  "params": {
+    "gap_factor": 5.0,
+    "gap_max_factor": 2.0,
+    "gap_floor_s": 5.0,
+    "group_fraction": 0.5,
+    "group_window_s": 5.0,
+    "trend_window_s": 180.0,
+    "trend_step_s": 30.0,
+    "trend_margin": 1.5,
+    "trend_floor_per_h": 0.5,
+    "trend_consecutive": 2,
+    "burst_window_s": 60.0,
+    "burst_min_count": 10,
+    "burst_factor": 10.0,
+    "restart_coalesce_s": 120.0
+  },
+  "sources": {
+    "slowsignal/tm00": {
+      "interval_median_s": 1.003082513809204,
+      "interval_max_s": 2.3007779121398926,
+      "messages": 1855
+    },
+    "slowsignal/tm01": {
+      "interval_median_s": 1.0037680864334106,
+      "interval_max_s": 2.2774410247802734,
+      "messages": 1855
+    },
+    "slowsignal/tm02": {
+      "interval_median_s": 1.0040251016616821,
+      "interval_max_s": 2.2752950191497803,
+      "messages": 1855
+    },
+    "slowsignal/tm03": {
+      "interval_median_s": 1.0041583776474,
+      "interval_max_s": 2.2692949771881104,
+      "messages": 1855
+    },
+    "slowsignal/tm04": {
+      "interval_median_s": 1.0040684938430786,
+      "interval_max_s": 2.267009973526001,
+      "messages": 1855
+    },
+    "slowsignal/tm05": {
+      "interval_median_s": 1.004186987876892,
+      "interval_max_s": 2.2710318565368652,
+      "messages": 1855
+    },
+    "slowsignal/tm06": {
+      "interval_median_s": 1.0044224262237549,
+      "interval_max_s": 2.330493927001953,
+      "messages": 1855
+    },
+    "slowsignal/tm07": {
+      "interval_median_s": 1.004331111907959,
+      "interval_max_s": 2.3447279930114746,
+      "messages": 1855
+    },
+    "slowsignal/tm08": {
+      "interval_median_s": 1.004404902458191,
+      "interval_max_s": 2.388672113418579,
+      "messages": 1855
+    },
+    "slowsignal/tm09": {
+      "interval_median_s": 1.0046584606170654,
+      "interval_max_s": 2.494442939758301,
+      "messages": 1855
+    },
+    "slowsignal/tm10": {
+      "interval_median_s": 1.0041855573654175,
+      "interval_max_s": 2.499980926513672,
+      "messages": 1855
+    },
+    "slowsignal/tm11": {
+      "interval_median_s": 1.0040439367294312,
+      "interval_max_s": 2.585637092590332,
+      "messages": 1855
+    },
+    "slowsignal/tm12": {
+      "interval_median_s": 1.004482388496399,
+      "interval_max_s": 2.5830960273742676,
+      "messages": 1855
+    },
+    "slowsignal/tm13": {
+      "interval_median_s": 1.004591941833496,
+      "interval_max_s": 2.590736150741577,
+      "messages": 1855
+    },
+    "slowsignal/tm14": {
+      "interval_median_s": 1.0044485330581665,
+      "interval_max_s": 2.6918320655822754,
+      "messages": 1855
+    },
+    "slowsignal/tm15": {
+      "interval_median_s": 1.0045599937438965,
+      "interval_max_s": 2.687831163406372,
+      "messages": 1855
+    },
+    "slowsignal/tm16": {
+      "interval_median_s": 1.0046025514602661,
+      "interval_max_s": 2.6854300498962402,
+      "messages": 1855
+    },
+    "slowsignal/tm17": {
+      "interval_median_s": 1.004131555557251,
+      "interval_max_s": 2.6763222217559814,
+      "messages": 1855
+    },
+    "slowsignal/tm18": {
+      "interval_median_s": 1.0043220520019531,
+      "interval_max_s": 2.6725051403045654,
+      "messages": 1855
+    },
+    "slowsignal/tm19": {
+      "interval_median_s": 1.0044798851013184,
+      "interval_max_s": 2.6736178398132324,
+      "messages": 1855
+    },
+    "slowsignal/tm20": {
+      "interval_median_s": 1.004245400428772,
+      "interval_max_s": 2.651944875717163,
+      "messages": 1855
+    },
+    "slowsignal/tm21": {
+      "interval_median_s": 1.004309892654419,
+      "interval_max_s": 2.6575610637664795,
+      "messages": 1855
+    },
+    "slowsignal/tm22": {
+      "interval_median_s": 1.0039135217666626,
+      "interval_max_s": 2.6575698852539062,
+      "messages": 1855
+    },
+    "slowsignal/tm23": {
+      "interval_median_s": 1.004116415977478,
+      "interval_max_s": 2.69228196144104,
+      "messages": 1855
+    },
+    "slowsignal/tm24": {
+      "interval_median_s": 1.0045260190963745,
+      "interval_max_s": 2.6668920516967773,
+      "messages": 1855
+    },
+    "slowsignal/tm25": {
+      "interval_median_s": 1.0042461156845093,
+      "interval_max_s": 2.658295154571533,
+      "messages": 1855
+    },
+    "slowsignal/tm26": {
+      "interval_median_s": 1.0044300556182861,
+      "interval_max_s": 2.677243947982788,
+      "messages": 1854
+    },
+    "slowsignal/tm27": {
+      "interval_median_s": 1.004305124282837,
+      "interval_max_s": 2.678788185119629,
+      "messages": 1854
+    },
+    "slowsignal/tm28": {
+      "interval_median_s": 1.0043458938598633,
+      "interval_max_s": 2.6825129985809326,
+      "messages": 1854
+    },
+    "slowsignal/tm29": {
+      "interval_median_s": 1.004302978515625,
+      "interval_max_s": 2.689847946166992,
+      "messages": 1854
+    },
+    "slowsignal/tm30": {
+      "interval_median_s": 1.0044240951538086,
+      "interval_max_s": 2.6902120113372803,
+      "messages": 1854
+    },
+    "slowsignal/tm31": {
+      "interval_median_s": 1.0043799877166748,
+      "interval_max_s": 2.650244951248169,
+      "messages": 1854
+    },
+    "eventbuilder/": {
+      "interval_median_s": 1.0030944347381592,
+      "interval_max_s": 1.4559521675109863,
+      "messages": 1859
+    },
+    "chiller/": {
+      "interval_median_s": 1.0090060234069824,
+      "interval_max_s": 1.9006478786468506,
+      "messages": 1844
+    },
+    "slowboard/": {
+      "interval_median_s": 1.0189204216003418,
+      "interval_max_s": 1.1975970268249512,
+      "messages": 1825
+    }
+  },
+  "trend": {
+    "slowsignal/temperature_i2c_power": {
+      "baseline_max_abs_per_h": 6.870465988551962,
+      "threshold_per_h": 10.305698982827943,
+      "windows": 1596,
+      "entities": 28,
+      "residual": true
+    },
+    "slowsignal/temperature_i2c_aux": {
+      "baseline_max_abs_per_h": 0.6519033118447941,
+      "threshold_per_h": 0.9778549677671912,
+      "windows": 1824,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_i2c_primary": {
+      "baseline_max_abs_per_h": 0.7262745337106532,
+      "threshold_per_h": 1.0894118005659799,
+      "windows": 1824,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_prim_asics": {
+      "baseline_max_abs_per_h": 0.5140459743268326,
+      "threshold_per_h": 0.771068961490249,
+      "windows": 1824,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_prim_shaper": {
+      "baseline_max_abs_per_h": 0.5261193698070463,
+      "threshold_per_h": 0.7891790547105695,
+      "windows": 1824,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_aux_asics": {
+      "baseline_max_abs_per_h": 0.6115119025475407,
+      "threshold_per_h": 0.917267853821311,
+      "windows": 1824,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_aux_shaper": {
+      "baseline_max_abs_per_h": 0.6776006826953679,
+      "threshold_per_h": 1.0164010240430519,
+      "windows": 1824,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_sipm1": {
+      "baseline_max_abs_per_h": 0.5521112468045144,
+      "threshold_per_h": 0.8281668702067716,
+      "windows": 1824,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_sipm2": {
+      "baseline_max_abs_per_h": 0.5047607065468386,
+      "threshold_per_h": 0.7571410598202579,
+      "windows": 1824,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_sipm3": {
+      "baseline_max_abs_per_h": 0.5467913864352628,
+      "threshold_per_h": 0.8201870796528943,
+      "windows": 1824,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_sipm4": {
+      "baseline_max_abs_per_h": 0.5808786078245857,
+      "threshold_per_h": 0.8713179117368786,
+      "windows": 1824,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_preamp": {
+      "baseline_max_abs_per_h": 0.5280192224565604,
+      "threshold_per_h": 0.7920288336848407,
+      "windows": 1824,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/hv_input_current": {
+      "baseline_max_abs_per_h": 0.003674635210566169,
+      "threshold_per_h": 0.5,
+      "windows": 1824,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/hv_input_voltage": {
+      "baseline_max_abs_per_h": 0.18439374098146472,
+      "threshold_per_h": 0.5,
+      "windows": 1824,
+      "entities": 32,
+      "residual": true
+    },
+    "chiller/return_temperature": {
+      "baseline_max_abs_per_h": 4.087822605201257,
+      "threshold_per_h": 6.131733907801886,
+      "windows": 57,
+      "entities": 1,
+      "residual": false
+    },
+    "chiller/supply_temperature": {
+      "baseline_max_abs_per_h": 2.574593679994573,
+      "threshold_per_h": 3.861890519991859,
+      "windows": 57,
+      "entities": 1,
+      "residual": false
+    },
+    "chiller/heater_temperature": {
+      "baseline_max_abs_per_h": 3.7255286010735436,
+      "threshold_per_h": 5.588292901610315,
+      "windows": 57,
+      "entities": 1,
+      "residual": false
+    },
+    "chiller/heat_exchanger_temperature": {
+      "baseline_max_abs_per_h": 3.7130439789858145,
+      "threshold_per_h": 5.569565968478722,
+      "windows": 57,
+      "entities": 1,
+      "residual": false
+    }
+  },
+  "warn_per_min": {
+    "CONTROLLER-SERVER": 0.03202964318707373
+  },
+  "known_templates": [
+    "CONTROLLER-SERVER|WARNING|Simulation override is enabled via CLI flag, ignoring config server.controller_adapter=ControllerAdapter.SIMULATION"
+  ]
+}
