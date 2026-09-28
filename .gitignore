@@ -1,0 +1,26 @@
+# private planning notes (institutional names, colleagues, policy) — never publish
+internal_docs/
+
+# python / tooling
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# generated data and run outputs
+*.db
+*.db-wal
+*.db-shm
+usage.csv
+answers.csv
+runs/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

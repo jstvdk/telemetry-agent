@@ -1,0 +1,2 @@
+{"id": "q01", "question": "Which subsystems sent messages in the last hour, and which one was the most active?", "expected": "FILL IN from your snapshot"}
+{"id": "q02", "question": "How many ERROR messages were there in the last 30 minutes?", "expected": "FILL IN"}
