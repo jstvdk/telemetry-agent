@@ -62,3 +62,18 @@ Each workaround and each finding about the real system is recorded in [PROVENANC
 | `/data/SSTCAM/monitoring/monitoring_<date>.bin` | gatherer monitoring, length-prefixed protobuf (decode: `lab/export_monitoring.py`) |
 | `/data/SSTCAM/slowsignal/slowsignal_<date>.bin` | slow-signal stream |
 | journal (`journalctl -o json`) | unit starts/stops/exits/restarts + service stdout |
+
+## Faults and labels
+
+```bash
+uv run shiftassist-lab --container cam-02 check                       # healthy?
+uv run shiftassist-lab --container cam-02 run scenarios/B01-first-faults.yaml --dry-run
+uv run shiftassist-lab --container cam-02 run scenarios/B01-first-faults.yaml
+uv run shiftassist-lab --container cam-02 reset                       # undo anything, any state
+uv run shiftassist-collect verify-labels captures/B01-…               # is each label's evidence there?
+uv run shiftassist-collect verify-labels captures/B00-… --labels-from captures/B01-…   # negative control
+```
+
+A run writes `captures/<scenario>-<time>/`: `labels.jsonl` (ground truth, container clock), `harness.jsonl` (every command with time and exit code), `run.json`, and the capture (`data/`, `journal.jsonl`, `monitoring.jsonl`).
+
+Fault types (`src/shiftassist/lab/faults.py`): `process_crash`, `process_hang`, `gatherer_down`, `calibration_missing`, `disk_full` (only on a small tmpfs `/data`), `slowsignal_drift`, `sensor_fault`, `module_dead`, `chiller_ramp`. Each is reverted in `finally`; if a revert fails the harness resets everything; if the camera does not recover, the run stops.

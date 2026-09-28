@@ -26,6 +26,7 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-10](#p-10--collectors-for-the-real-formats) | 2026-09-28 | Collectors | Parsers for logs, journal, monitoring; capture summary; tracebacks only in journal; central log misses boot | collect commit |
 | [P-11](#p-11--clean-baseline-30-min-one-camera) | 2026-09-28 | Clean baseline | 30 min, 0 restarts; healthy camera writes no logs; mock channels flat; slow-signal mock constant | baseline commit |
 | [P-12](#p-12--realistic-slow-signal-model-and-the-fault-harness) | 2026-09-28 | Slow-signal model + fault harness | 9 fault types into the real software, always reverted, labelled; I2C negative-temperature decode bug | harness commit |
+| [P-13](#p-13--first-labelled-fault-run-b01-and-label-validation) | 2026-09-28 | First labelled run + label validation | 18/18 label evidence found; negative control 0/11 | validation commit |
 
 ---
 
@@ -355,6 +356,46 @@ The last row is the strongest evidence for [ADR-0002](adr/0002-deterministic-det
 
 ---
 
+## P-13 · First labelled fault run (B01) and label validation
+
+**Goal.** Produce the first labelled data from the real camera software, and prove the labels are right *before* any detector is scored against them.
+
+**Done.** Two fresh cameras from the same image, run in parallel:
+- `cam-01` → **B00**: 31 min clean baseline with the realistic slow-signal model. 0 restarts, 0 tracebacks, only the known controller notice; all 32 modules at 0.99 Hz.
+- `cam-02` → **B01**: 8 faults over 36 min, all injected, reverted and recovered on schedule; no abort, no failed command.
+
+Then `shiftassist-collect verify-labels` checked every expected event against the camera's own data, and a **negative control** applied the same checks, at the same offsets, to the clean B00 capture.
+
+**Result**
+
+| Check | Result |
+|---|---|
+| B01 labels on B01 (does the evidence exist?) | **18/18** |
+| B01 labels on clean B00 (do the checks fire on a healthy camera?) | **0/11** (7 inconclusive: B00 is shorter than B01, so those windows fall outside it) |
+
+What the faults actually did (measured, not assumed):
+
+| Fault | Evidence in the capture |
+|---|---|
+| chiller SIGKILL, 2 min before reconnect | chiller monitoring silent **127 s**: restart ≈ 7 s after reconnect |
+| RTD fault, module 12 | 90 WARNINGs at 0.93/s, none before |
+| slowboard frozen 90 s | monitoring silent 91 s; **nothing in the journal** (a freeze is not an exit) |
+| module 5 dead 2 min | module silent 122 s |
+| calibration missing, ~70 s | 6 `FileNotFoundError` tracebacks, 19 stop/exit events (crash loop), pointing stopped 8 times, and its stop hook failing too |
+| drift 6 °C/h, module 7 | +6.6 °C/h in the window vs +0.6 °C/h before (z ≈ 50) |
+| chiller ramp 23→30 °C | +67 °C/h over the window (ramp + hold), z ≈ 70 |
+| gatherer stopped 90 s | all four monitoring sources silent **108 s** at the same moment: ~18 s gatherer start-up on top of the hold |
+
+**Decisions**
+- **D-13a A label is not trusted until its evidence is found in the data, and a negative control shows the check does not fire on a healthy camera.** This validates the ground truth, which is separate from, and comes before, detector evaluation.
+- **D-13b Three outcomes, not two:** a check whose window is not covered by the capture is *inconclusive*, never "found" or "missing".
+
+**Failures / dead ends (mine)**
+- **X-13a The first negative control reported 4 false "gaps".** The shifted windows ran past the end of the shorter baseline, and "no data after the capture ended" was read as silence. Fixed with the inconclusive outcome (D-13b). Without the negative control this bug would have inflated every later gap result.
+- **X-13b** A test expected a 90 s silence; the correct value is 91 s (last message at 199 s, next at 290 s). The code was right.
+
+---
+
 ## Failure register
 
 Every failure in one table, with how it was found and where it was resolved. "Found by" matters: a failure found by a test or a measurement is worth more than one found by reading.
@@ -378,6 +419,7 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-11a | P-11 | P-11 | Capture output | Live-file tar warning aborted the rename | Capture in wrong layout | Tolerate exit 1 | Resolved |
 | X-11b | P-10 | P-11 | Baseline review | Rates over log window, not capture window | Rates ~150x too high | Window across all sources | Resolved |
 | X-12a | P-10 | P-12 | KeyError in per-module check | Exporter dropped default-valued protobuf fields (slot 0, zeros) | Module 0 and zero readings invisible | Always print fields | Resolved |
+| X-13a | P-13 | P-13 | Negative control | Windows past the capture end counted as silence | 4 false gaps | Inconclusive outcome | Resolved |
 
 ## Decision register
 
@@ -398,7 +440,9 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | D-05d | Judge calibration before use | P-05 | [04 §1](04-evaluation.md#layer-3--answer-quality-scored-by-question-type) |
 | D-07a | Injector writes its own label | P-07 | [ADR-0004](adr/0004-synthetic-simulator-as-ground-truth.md) |
 | D-07b | Expected events by kind/camera/time, not ID | P-07 | [04 §2](04-evaluation.md#2-dataset) |
-| D-08a | Three data tiers, one label format (proposed) | P-08 | ADR pending |
+| D-08a | Three data tiers, one label format | P-08 | ADR pending |
+| D-12a | Faults change the situation, never the logs | P-12 | [lab README](../lab/camera-in-a-box/README.md) |
+| D-13a | Labels validated against data + negative control before scoring | P-13 | this file |
 
 ---
 

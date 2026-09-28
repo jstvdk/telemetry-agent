@@ -1,0 +1,10 @@
+exported 64882 messages
+ 81M	data
+4.0K	harness.jsonl
+1.4M	journal.jsonl
+  0B	labels.jsonl
+4.0K	manifest.json
+128M	monitoring.jsonl
+4.0K	run.json
+4.0K	units.txt
+B00: 0 faults labelled -> /Users/vdk/software/telemetry-agent/lab/camera-in-a-box/captures/B00-20260928T222149
