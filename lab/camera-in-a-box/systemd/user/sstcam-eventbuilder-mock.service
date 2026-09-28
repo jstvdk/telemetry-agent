@@ -1,0 +1,19 @@
+# camera-in-a-box: feed the event builder with synthetic UDP waveform packets.
+[Unit]
+Description=SSTCam Event Builder mock data source
+PartOf=sstcam.target
+Requisite=sstcam-session.service
+After=sstcam-eventbuilder.service
+BindsTo=sstcam-eventbuilder.service
+
+[Service]
+Type=simple
+Environment=TQDM_DISABLE=1
+WorkingDirectory=%h
+ExecStartPre=/bin/sleep 5
+ExecStart=%h/miniforge3/envs/sstcam/bin/sstcam eventbuilder mock start empty
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=sstcam.target

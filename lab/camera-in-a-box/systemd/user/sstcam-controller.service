@@ -1,0 +1,19 @@
+# camera-in-a-box: the controller has no upstream unit; run it with the simulation adapter,
+# supervised like the other servers.
+[Unit]
+Description=SSTCam Controller Server (simulation adapter)
+PartOf=sstcam.target
+Requisite=sstcam-session.service
+After=sstcam-session.service sstcam-gatherer.service
+
+[Service]
+Type=simple
+Environment=SSTCAM_SIMULATION_STEP_DELAY=0.05
+WorkingDirectory=%h
+ExecStart=%h/miniforge3/envs/sstcam/bin/sstcam controller serve --simulated
+ExecStop=%h/miniforge3/envs/sstcam/bin/sstcam controller interrupt
+Restart=on-failure
+KillMode=control-group
+
+[Install]
+WantedBy=sstcam.target

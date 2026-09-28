@@ -1,0 +1,20 @@
+# camera-in-a-box: connect chiller and slowboard servers to their mocks once at boot — the step
+# the controller (real adapter) or an operator performs. Runs once only: if a server restarts
+# later, its monitoring stays off until someone reconnects, as on a real system.
+[Unit]
+Description=SSTCam lab: connect servers to (mock) hardware
+PartOf=sstcam.target
+Requisite=sstcam-session.service
+After=sstcam-chiller.service sstcam-slowboard.service
+Wants=sstcam-chiller.service sstcam-slowboard.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=%h
+ExecStartPre=/bin/sleep 10
+ExecStart=%h/miniforge3/envs/sstcam/bin/sstcam chiller connect
+ExecStart=%h/miniforge3/envs/sstcam/bin/sstcam slowboard connect
+
+[Install]
+WantedBy=sstcam.target

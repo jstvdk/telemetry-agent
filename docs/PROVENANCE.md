@@ -22,6 +22,7 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-06](#p-06--repository-foundations-m0) | 2026-09-28 | M0 repo foundations | git, packaging, baseline/, CI | M0 commit |
 | [P-07](#p-07--simulator-m1) | 2026-09-28 | M1 simulator | Seeded scenarios with ground-truth labels; v0 counter says 112 errors on a night with 0 | M1 commit |
 | [P-08](#p-08--real-camera-server-observability) | 2026-09-28 | Real observability summary | Invented format found; three data tiers proposed | — |
+| [P-09](#p-09--camera-in-a-box-tier-b-infrastructure) | 2026-09-28 | camera-in-a-box | Real camera software on mocks under systemd; 9 findings about the real system, 3 upstream build bugs | lab commit |
 
 ---
 
@@ -209,6 +210,58 @@ The last row is the strongest evidence for [ADR-0002](adr/0002-deterministic-det
 - **D-08a Three data tiers with one label format:** (A) fully synthetic, public, CI; (B) live fault injection against the real mock stack on a lab machine, private; (C) replay + splice of tier-B recordings, private, for volume and variation. The eval harness does not change between tiers.
 - **D-08b Rendering becomes a pluggable dialect.** The public repo ships the generic dialect; the lab dialect lives outside the public repo.
 - **D-08c The real source code is not read** by the assistant until the data-policy question on that has an answer. Formats are taken from captured **output** (log files, journal export) instead.
+- **D-08d (2026-09-28, author) — reverses D-08c.** This is a study project, so any data may be used, including the real camera-server source and internal data. The log format is generic enough to live in the repo, and the repo can be made private if needed. The public/private split is kept only where it costs nothing (`internal_docs/` stays git-ignored).
+- **D-08e (author)** Aim for large volumes of data generated over time by the simulators, including **system-wide** injected faults, not only per-subsystem ones.
+
+**Findings while checking where tier B can run**
+- The production target is Linux (AlmaLinux 9) with services supervised as systemd user units (`Restart=on-failure`, one target unit for the whole suite) and logs in the journal. macOS has neither systemd nor journald.
+- The repo's systemd Dockerfile is **truncated**: it ends in the middle of a `RUN … &&` command, so it cannot build as-is. The prebuilt images sit in an authenticated registry. A tier-B image has to be built here.
+- Docker (linux/arm64) is available on the development Mac.
+
+---
+
+## P-09 · camera-in-a-box (tier B infrastructure)
+
+**Goal.** Run the real camera-server software, unmodified, on mocks in a disposable Linux box on the development Mac, with the production OS and supervision model, and capture a clean baseline.
+
+**Done.** `lab/camera-in-a-box/`: AlmaLinux 9 image with systemd as PID 1; the orchestrator's upstream user units run unchanged under a lingering user manager; hardware replaced by the project's own mocks through systemd drop-ins; config patched by a script that prints every change. Sources staged from local checkouts, with revisions recorded in image labels. `capture.sh` exports logs, journal, decoded monitoring and unit states. The camera boots from cold with **12 units active, 0 restarts, all four monitoring streams flowing** (chiller, slowboard, slowsignal, eventbuilder at 1–34 Hz).
+
+**Decisions**
+- **D-09a Run the upstream unit files unchanged; change behaviour only through drop-ins and extra units.** A symlink maps the hard-coded `%h/miniforge3/envs/sstcam` onto the venv. Everything that differs from a lab machine is in one visible place.
+- **D-09b Never patch the camera source.** Workarounds are build flags, config patches, data preparation, or a launcher that sets mock options before the CLI starts. Each is documented where it is applied.
+- **D-09c Backplane masked** (author: known broken; the first camera version has no backplane).
+- **D-09d Slow-signal mock packet mode is a switch:** `example` for the clean baseline, `random` (the mock's default) kept as an injectable fault.
+- **D-09e Hardware connect happens once at boot** (an extra one-shot unit), not on every restart, so "server restarted but never reconnected" stays observable, as on a real system.
+- **D-09f The monitoring exporter uses the project's own reader API**, not a re-implemented protobuf parser.
+
+**Findings about the real system** (evidence: build logs, journal and log excerpts in the capture)
+
+| # | Finding | Consequence for the assistant |
+|---|---|---|
+| R1 | Per-process log timestamps are `yy-mm-dd HH:MM:SS`: **2-digit year, 1 s resolution, no timezone**. Central log (ICD format) has ms: `yy-mm-ddTHH:MM:SS.mmm`, also no timezone | Cross-process ordering below 1 s only from the central file; the parser must assume a zone (UTC in the box) |
+| R2 | **Multi-line messages** (tracebacks, `Hardware error detected:` + one line per fault bit) produce continuation lines without timestamp or level, in both formats | Collector must reassemble records; naive line-based counting is wrong (v0 F1 again, in another form) |
+| R3 | Files: `logs/log_<start>_<process>.txt` per process **start** (not per day) and `logs/sstcam-server_<date>.log` central; the private summary had the naming wrong | Each restart opens a new file: a restart is visible as a new file even without the journal |
+| R4 | Branch HEAD deleted the combined slow-signal calibration CSV but the config and loader still require it: **slowsignal crash-loops (30+ restarts in minutes)** | Real "config/data mismatch after an update" incident, found without injecting anything |
+| R5 | pointing `Requires=` slowsignal, so each slowsignal crash **stops pointing too** | Real dependency cascade: "why does pointing keep restarting?" has a non-local answer |
+| R6 | Slow-signal mock fills packets with random words: every packet sets sensor fault bits, giving **~235 multi-line WARNINGs/s (~5–6 GB/day)**; the server does no rate limiting or de-duplication of repeated hardware warnings | Alert-fatigue scenario; a real failing RTD would do the same |
+| R7 | Chiller and slowboard servers **publish no monitoring until `connect`**; the simulation adapter skips that step | Silence is a failure mode: absence of monitoring must be detected, not only bad values |
+| R8 | Backplane server exits when `backplane_connection=DISCONNECTED`, and its stop hook then fails (`No server open`), so it loops | Known upstream (author); masked |
+| R9 | Session start fails if `/data/SSTCAM/current` already exists (e.g. after power loss), and every server is `Requisite=` on the session | *Predicted from code, not yet reproduced:* a stale symlink would keep the whole camera down after an unclean restart |
+
+**Build problems found upstream** (each has a documented workaround, not a source patch)
+- The repo's systemd Dockerfile is truncated (P-08).
+- `corel-mmio` (DESY GitLab) references an LFS object the remote no longer has, so any install with `git-lfs` present fails → `GIT_LFS_SKIP_SMUDGE=1`.
+- `sstcam-eventbuilder/.../run_udp_stress_test.cc` stores `getopt()` in a `char` and compares with `-1`: **always true on arm64** (unsigned `char`), a hard error under `-Werror`, and an infinite loop without it → built with `-fsigned-char` (x86 semantics). Worth reporting upstream.
+- The example server configs contain InfluxDB tokens in plain text; the patch script blanks them and redacts them in its output.
+
+**Failures / dead ends (mine)**
+- **X-09a** The AlmaLinux base image masks `systemd-logind`; without it the lingering user manager never starts, so none of the camera units ran. Found on first boot (`Failed to connect to bus`), fixed by unmasking.
+- **X-09b** Guessed a class name in the camera code instead of looking it up; the launcher crash-looped slowsignal (`ImportError`) until fixed. Lesson: read the symbol before patching around it.
+- **X-09c** Tooling slips: `docker cp` into a path hidden by a tmpfs mount; `sudo` `secure_path` overriding `PATH`; a heredoc to `docker exec` without `-i`. Each cost one iteration.
+- **X-09d** The config patch script printed the old InfluxDB token into the (git-ignored) build log. Fixed: token keys are redacted, and the log line was removed.
+- **X-09e** An offline test of example vs. random slow-signal packets reported 0 warnings for both, because it never reached the code that emits them. Replaced by a measurement in the running server: 0 warnings/60 s (example) vs. ~235/s (random).
+
+**Evidence.** Image `camera-in-a-box:dev`, labels `sstcam.server.rev=…-gc8aef550`, `sstcam.server.branch=ssig-calib-conf-update`, `cambridge.rev=v0.3.0-rc1-37-g223ab40`. Baseline capture `lab/camera-in-a-box/captures/baseline-30m/` (git-ignored; summary in P-10).
 
 ---
 
@@ -226,6 +279,10 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-04a | P-03 | P-04 | Review | Eval: manual scoring, k=1, cost NaN | No trustworthy numbers | Eval harness (M4) | Open → M4 |
 | X-07a | P-07 | P-07 | Test design | HV-trip ramp peaked between samples; telemetry never crossed the limit | Detection test would have been meaningless | Peak one sample earlier; test asserts crossing | Resolved |
 | X-07b | P-07 | P-08 | Domain input | Simulator format and transport invented, not matched to the real system | Collector/detection would be tuned to a format that does not exist | Dialects + tiers B/C (D-08a, D-08b) | Open → M1b |
+| X-09a | P-09 | P-09 | First boot | logind masked in base image; no user units ran | Camera never started | Unmask in image | Resolved |
+| X-09b | P-09 | P-09 | Journal | Guessed class name; launcher crash-looped slowsignal | 1 iteration | Looked up symbol | Resolved |
+| X-09d | P-09 | P-09 | Review of build log | Config token printed into build log | Secret in a local log | Redaction; log cleaned | Resolved |
+| X-09e | P-09 | P-09 | Measurement | Offline test could not detect the warnings it was meant to count | False "no difference" | Measured in the running server | Resolved |
 
 ## Decision register
 
