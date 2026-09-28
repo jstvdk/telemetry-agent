@@ -32,15 +32,23 @@ Start with the [documentation index](docs/README.md). Short path:
 - **How:** [architecture](docs/03-architecture.md) and [decision records](docs/adr/README.md)
 - **How we know it works:** [evaluation](docs/04-evaluation.md) and [test plan](docs/05-test-plan.md)
 
-## Running v0 (spike)
+## Quickstart
 
-v0 needs a ZMQ publisher of log messages (the v1 simulator will replace this).
+Requires [uv](https://docs.astral.sh/uv/). Python 3.12 is installed by uv if missing.
 
 ```bash
-uv venv && source .venv/bin/activate
-uv pip install pyzmq "mcp>=2" anthropic pandas
-python collector.py tcp://localhost:5556        # terminal 1
-python agent.py "Were there any errors in the last 30 minutes?"
+make install        # .venv + package + dev tools
+make test           # deterministic tests, no API key needed
 ```
 
-`server.py` exposes the same tools over MCP for Claude Desktop or any other MCP client.
+## Repository layout
+
+```
+src/shiftassist/    v1 package (see docs/03-architecture.md §7 for the target layout)
+scenarios/          simulator scenarios (YAML)
+tests/
+baseline/           v0 learning spike, unchanged; baseline for experiment E1
+docs/               design docs, ADRs, evaluation, provenance
+```
+
+v0 needs a ZMQ publisher of log messages; see [baseline/README.md](baseline/README.md). `baseline/server.py` exposes its tools over MCP for Claude Desktop or any other MCP client.
