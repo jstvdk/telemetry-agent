@@ -11,7 +11,14 @@ from pydantic import BaseModel
 
 Level = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 EventKind = Literal[
-    "limit", "trend", "gap", "restart", "config_change", "traceback", "new_signature"
+    "limit",  # a value crossed a threshold
+    "trend",  # a value drifts (rate of change), no threshold crossed yet
+    "gap",  # expected data stopped arriving (monitoring silence, missing heartbeats)
+    "restart",  # a process stopped/exited and was started again
+    "config_change",
+    "traceback",
+    "new_signature",  # an error message template never seen before
+    "log_burst",  # a message template suddenly repeats at a high rate
 ]
 
 
@@ -48,6 +55,7 @@ class ExpectedEvent(BaseModel):
     near: str  # ISO-8601 UTC
     tolerance_s: float
     channel: str | None = None
+    entity: str | None = None  # sub-device, e.g. 'tm07' (slow-signal module)
 
 
 class Label(BaseModel):

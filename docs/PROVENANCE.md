@@ -25,6 +25,7 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-09](#p-09--camera-in-a-box-tier-b-infrastructure) | 2026-09-28 | camera-in-a-box | Real camera software on mocks under systemd; 9 findings about the real system, 3 upstream build bugs | lab commit |
 | [P-10](#p-10--collectors-for-the-real-formats) | 2026-09-28 | Collectors | Parsers for logs, journal, monitoring; capture summary; tracebacks only in journal; central log misses boot | collect commit |
 | [P-11](#p-11--clean-baseline-30-min-one-camera) | 2026-09-28 | Clean baseline | 30 min, 0 restarts; healthy camera writes no logs; mock channels flat; slow-signal mock constant | baseline commit |
+| [P-12](#p-12--realistic-slow-signal-model-and-the-fault-harness) | 2026-09-28 | Slow-signal model + fault harness | 9 fault types into the real software, always reverted, labelled; I2C negative-temperature decode bug | harness commit |
 
 ---
 
@@ -324,6 +325,36 @@ The last row is the strongest evidence for [ADR-0002](adr/0002-deterministic-det
 
 ---
 
+## P-12 · Realistic slow-signal model and the fault harness
+
+**Goal.** Make every fault class injectable into the *real* camera software with exact ground truth, including per-module slow-signal faults, which the shipped mock could not produce (R16).
+
+**Done**
+- `lab/camera-in-a-box/lab/slowsignal_model.py`: per-TARGET-module values (nominal + fixed module offset + shared ambient wave + noise), encoded with exact inverses of the server's own conversions and sent through the real server path. A control file changes behaviour at runtime without restarts: `drift`, `offset`, `sensor_fault` (fault bits on chosen RTDs), `dead` (module stops sending). Verified live: 32 modules with slots 0–31, module means spread ±1.2 °C, noise ~0.03 °C, 0 warnings. A 60 °C/h drift gave +0.67 °C in 40 s; a dead module sent 0 packets while dead; one broken RTD gave exactly 1 warning/s.
+- `src/shiftassist/lab/`: `Box` (docker exec; every command logged with the container-clock time), a fault catalog of 9 types (`process_crash`, `process_hang`, `gatherer_down`, `calibration_missing`, `disk_full`, `slowsignal_drift`, `sensor_fault`, `module_dead`, `chiller_ramp`), and a runner. The runner refuses an unhealthy camera, reverts in `finally`, falls back to an idempotent `reset_to_nominal` if a revert fails, verifies recovery before the next fault, and aborts the rest of the run if the camera does not recover. `disk_full` refuses to run unless `/data` is a small tmpfs. CLI: `shiftassist-lab run|check|reset`, with `--dry-run`. 12 tests against a fake container.
+- Label contract extended (shared with tier A): event kind `log_burst`; `entity` on expected events (e.g. `tm07`).
+- Scenarios: `B00` (30-min clean baseline with the realistic model) and `B01` (8 faults, one of each type except `disk_full`).
+
+**Decisions**
+- **D-12a Faults change the camera's situation, never its logs.** The harness kills, freezes, hides files, or changes sensor readings; every log line and journal entry in a capture is written by the camera software itself.
+- **D-12b The chiller/slowboard crash label includes a monitoring gap** until reconnect (R7): the hold is the time until the "operator" reconnects.
+- **D-12c Label times come from the container clock**, which is the clock the camera stamps its data with.
+- **D-12d Nominal slow-signal values are assumptions** (plausible lab-room numbers), stated in the model's docstring. The model provides realistic *structure* (per-module identity, noise, drift), not measured physics.
+
+**Findings about the real system (continued)**
+
+| # | Finding | Consequence |
+|---|---|---|
+| R17 | **The I2C aux/primary board-temperature decoder is wrong for every negative temperature.** It shifts the whole word, so the sign bit lands in the magnitude: −5 °C decodes as −133 °C (sign-magnitude input) or −251 °C (two's complement). Positive values are exact. Found by round-tripping the encoders through the server's decoders | A cold camera (outdoors at night, cold start) reports absurd board temperatures and can trip limit rules. Worth reporting upstream |
+| R18 | **The slow-signal hardware-error WARNING names neither module nor sensor** ("Hardware error detected: Sensor Hard Fault …"), and the published temperature stays plausible because the fault bits are masked off | A broken RTD cannot be located from the logs or from monitoring. The assistant can only say "some sensor on some module", unless the packet source is logged |
+| R19 | The chiller mock treats a temperature override of 0 as "no override" (`override or setpoint`) | 0 °C cannot be simulated; `temperature 0` is the way to clear the override |
+
+**Failures / dead ends (mine)**
+- **X-12a** The monitoring exporter dropped every protobuf field at its default value, including `tm_slot = 0` and any reading of exactly 0.0. Found when the per-module check raised `KeyError: 'tm_slot'`. Fixed with `always_print_fields_with_no_presence=True`. The earlier baseline decode (P-11) was affected only for zero-valued fields.
+- **X-12b** An expected timestamp in a harness test was computed by hand, wrongly; the code was right. The test now states the reference time.
+
+---
+
 ## Failure register
 
 Every failure in one table, with how it was found and where it was resolved. "Found by" matters: a failure found by a test or a measurement is worth more than one found by reading.
@@ -346,6 +377,7 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-10b | P-10 | P-10 | Failing test | Fixture cut missed the record under test | Test could not pass | Re-cut fixture | Resolved |
 | X-11a | P-11 | P-11 | Capture output | Live-file tar warning aborted the rename | Capture in wrong layout | Tolerate exit 1 | Resolved |
 | X-11b | P-10 | P-11 | Baseline review | Rates over log window, not capture window | Rates ~150x too high | Window across all sources | Resolved |
+| X-12a | P-10 | P-12 | KeyError in per-module check | Exporter dropped default-valued protobuf fields (slot 0, zeros) | Module 0 and zero readings invisible | Always print fields | Resolved |
 
 ## Decision register
 

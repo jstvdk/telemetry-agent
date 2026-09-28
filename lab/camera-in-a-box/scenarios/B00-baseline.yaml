@@ -1,0 +1,6 @@
+id: B00
+title: Clean baseline, realistic slow-signal model
+description: No faults. 30 min of a healthy camera, for tuning detection (what "normal" looks like).
+settle: 0s
+cooldown: 30m
+faults: []

@@ -1,0 +1,16 @@
+id: B01
+title: First fault set, one camera
+description: >
+  One of each fault type in the catalog except disk_full (needs a tmpfs /data), spaced so each
+  has a clean before/after window. ~40 min.
+settle: 3m
+cooldown: 3m
+faults:
+  - {kind: process_crash, at: 3m, unit: chiller, hold: 2m}          # restart, then silent until reconnect
+  - {kind: sensor_fault, at: 7m, module: 12, sensors: [sipm2], hold: 90s}
+  - {kind: process_hang, at: 10m, unit: slowboard, hold: 90s}
+  - {kind: module_dead, at: 13m, module: 5, hold: 2m}
+  - {kind: calibration_missing, at: 17m, hold: 60s}                # crash loop + pointing cascade
+  - {kind: slowsignal_drift, at: 21m, module: 7, sensors: [sipm1, sipm2], slope_c_per_h: 6, hold: 5m}
+  - {kind: chiller_ramp, at: 28m, to_c: 30, over: 4m, hold: 1m}
+  - {kind: gatherer_down, at: 35m, hold: 90s}

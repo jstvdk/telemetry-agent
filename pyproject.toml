@@ -19,6 +19,7 @@ baseline = ["anthropic>=0.40", "mcp>=2", "pandas>=2"]
 [project.scripts]
 shiftassist-sim = "shiftassist.sim.cli:main"
 shiftassist-collect = "shiftassist.collect.cli:main"
+shiftassist-lab = "shiftassist.lab.cli:main"
 
 [dependency-groups]
 dev = [

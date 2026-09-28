@@ -114,6 +114,7 @@ RUN cp -n /opt/sstcam/units/* /home/sstcam/.config/systemd/user/ \
 
 COPY bin/ /usr/local/bin/
 COPY --chown=sstcam:sstcam lab/ /opt/sstcam/lab/
+RUN install -d -o sstcam -g sstcam /home/sstcam/lab-control
 ENV PATH=/opt/sstcam/venv/bin:$PATH
 STOPSIGNAL SIGRTMIN+3
 VOLUME ["/data", "/var/log/journal"]

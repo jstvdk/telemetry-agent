@@ -26,7 +26,11 @@ async def export(directory: str, prefix: str = "monitoring") -> int:
     for day in days:
         async for msg in reader.read_messages(GatheredMonitoringMessage, day):
             kind = msg.WhichOneof("monitoring_message")
-            body = MessageToDict(getattr(msg, kind), preserving_proto_field_name=True)
+            body = MessageToDict(
+                getattr(msg, kind),
+                preserving_proto_field_name=True,
+                always_print_fields_with_no_presence=True,  # else zeros (e.g. slot 0) vanish
+            )
             sys.stdout.write(json.dumps({"subsystem": kind, **body}) + "\n")
             n += 1
     return n
