@@ -9,6 +9,7 @@ from shiftassist.detect.model import Event
 from shiftassist.detect.profile import Profile, learn
 from shiftassist.detect.rules import detect
 from shiftassist.detect.score import render, score
+from shiftassist.sim.timeutil import parse_iso
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -22,6 +23,12 @@ def main(argv: list[str] | None = None) -> int:
     a_run.add_argument("-p", "--profile", required=True)
     a_sc = sub.add_parser("score", help="score <capture>/events.jsonl against its labels")
     a_sc.add_argument("capture")
+    a_sc.add_argument(
+        "--run-window",
+        action="store_true",
+        help="score only events inside the harness run (run.json); for captures that also "
+        "contain an earlier run on the same camera",
+    )
     a_sc.add_argument(
         "--only-validated",
         action="store_true",
@@ -78,6 +85,11 @@ def main(argv: list[str] | None = None) -> int:
         ]
         print(f"excluded {len(bad)} expected event(s) without evidence in the data")
     first, last = c.span
+    if a.run_window:
+        run = json.loads((cap / "run.json").read_text())
+        first, last = parse_iso(run["start"]), parse_iso(run["end"])
+        events = [e for e in events if first <= e.ts <= last]
+        print(f"run window {run['start']} .. {run['end']}: {len(events)} events")
     s = score(cap.name, events, labels, (last - first).total_seconds() / 3600)
     md = render(s)
     (cap / "SCORE.md").write_text(md)

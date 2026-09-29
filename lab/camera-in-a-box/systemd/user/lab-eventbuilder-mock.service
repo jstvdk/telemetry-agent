@@ -1,6 +1,7 @@
-# camera-in-a-box: feed the event builder with synthetic UDP waveform packets.
+# camera-in-a-box: feed the event builder with synthetic UDP waveform packets. Named lab-*, not
+# sstcam-*, so the camera collector never mistakes lab infrastructure for camera software (P-20).
 [Unit]
-Description=SSTCam Event Builder mock data source
+Description=Lab: Event Builder mock data source (stands in for camera hardware)
 PartOf=sstcam.target
 Requisite=sstcam-session.service
 After=sstcam-eventbuilder.service

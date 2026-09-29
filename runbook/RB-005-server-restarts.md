@@ -24,7 +24,7 @@ systemd restarts a camera server. Either once (exit, start, then stable) or repe
 
 ## Likely causes
 1. **A file the server needs at start-up is missing or unreadable** (calibration table, configuration). Traceback: `FileNotFoundError` / `PermissionError` with the path. Crash loop, because every start fails the same way (R4).
-2. **The data disk is full** (`OSError: [Errno 28] No space left on device`). *Predicted, not yet observed in the lab.*
+2. **The data disk is full** (`OSError: [Errno 28] No space left on device`). In the lab this did *not* restart anything: see RB-012.
 3. **A one-off crash** (bug, killed by the OOM killer or by someone). One restart, then stable. The journal exit status tells a signal (`status=9/KILL`) from an exception (`status=1/FAILURE`).
 4. **A dependency restarted** (see RB-006 for pointing).
 5. **The server was restarted on purpose** (stop + start, no failure).

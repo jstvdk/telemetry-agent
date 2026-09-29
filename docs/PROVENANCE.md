@@ -35,6 +35,7 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-19](#p-19--read-only-tools-for-the-llm-layer) | 2026-09-29 | Read-only tools | 7 tools from one registry over a snapshot; every real B01/B02 event retrieves a runbook entry | tools commit |
 | [P-20](#p-20--agent-loop-and-grounding-validator) | 2026-09-29 | Agent loop + validator | One loop, two provider adapters, structured answer, V1–V5 in code; tested offline with a scripted model | agent commit |
 | [P-21](#p-21--agent-evaluation-harness-and-a-rule-baseline) | 2026-09-29 | Agent eval harness + rule baseline | Questions from labels; a no-LLM baseline already names the right runbook entry for 80–88 % of isolated faults | eval commit |
+| [P-22](#p-22--dev-runs-before-the-held-out-set-b11-b12) | 2026-09-29 | Dev runs B11/B12 before held-out | 3 lab defects fixed; disk full observed (R21: one short write hides the rest of the day's monitoring); overlapping faults; B03 generator | lab commit |
 
 ---
 
@@ -636,6 +637,56 @@ The baseline's misses are the cases that need reasoning: a stopped gatherer (eve
 
 ---
 
+## P-22 · Dev runs before the held-out set (B11, B12)
+
+**Goal.** Run every fault the held-out set can draw, and the new overlap mechanism, on the real camera software first, so that a broken fault or harness path is found on dev data and not in B03. (Asked for by the author: "start all the runs that are needed".)
+
+**Why not B03 now.** B03 must be generated from the runbook-freeze commit and recorded after `detector-v1` (D-18e); the clean held-out run B03c must follow the tag. Neither can start before those exist.
+
+**B11: every catalog entry never run before** (crashes of gatherer, event builder, target, controller, pointing; hangs of slow-signal and event builder; `disk_full`), on `cam-02` with `/data` on a 1 GiB tmpfs.
+- First attempt **aborted after 2 of 8 faults**, as designed (no recovery → reset → stop). Three lab defects, all ours, none in the camera software:
+  - **X-22a** `disk_full` could never run as documented: its refusal message said "start the box with DATA_TMPFS=…", but the Makefile had no such option. Added (`--tmpfs /data`, owned by the camera user).
+  - **X-22b** The event-builder mock unit was `BindsTo=` the event builder: a crash *stopped* it (not failed, so `Restart=on-failure` did not apply) and nothing started it again. A real camera's hardware keeps sending whatever the event builder does. Fix: a drop-in `Upholds=` on the event builder (systemd ≥ 249); verified live (mock back 10 s after a SIGKILL).
+  - **X-22c** Lab-only units were named `sstcam-*`, so the camera collector treated lab infrastructure as camera software: a "restart of sstcam-eventbuilder-mock" event would reach the agent, which can never happen on a real camera. Renamed `lab-eventbuilder-mock`, `lab-connect`; the harness health check covers them explicitly.
+- Image rebuilt (`camera-in-a-box:dev` = `4da7c2847554`; the previous image is kept as `camera-in-a-box:2026-09-28` = `5480988c8746`, on which B10 runs). The camera software is identical; only lab units changed.
+- **X-22d (environment)** The rebuild hung twice on "resolve image config for docker/dockerfile:1.7": Docker's credential helper (`docker-credential-desktop get`) was waiting on the macOS keychain. The images are public, so the build ran with a scratch `DOCKER_CONFIG` without a credential store; the author's Docker configuration was not changed.
+- Re-run: **8/8 faults injected, reverted and recovered**; label evidence 11/11.
+
+**What a full data disk does (first observation)**
+
+| | observed (2 min, 1 GiB tmpfs) |
+|---|---|
+| servers | none exited or restarted |
+| gatherer | **8649** `OSError: [Errno 28] No space left on device` tracebacks in 120 s (one per failed write) |
+| slow-signal | 238 of the same, plus `Exception occurred during continuous coroutine: uncalib_slowsignal_data_publish` |
+| monitoring | **lost** on all four sources for 120 s (not delayed) |
+| monitoring file | damaged, see R21 |
+
+| # | Finding | Consequence |
+|---|---|---|
+| R21 | **One failed write hides the rest of the day's monitoring from the project's own reader.** Records are appended as a 4-byte length + message with no sync marker (`sstcam_telecom/protobuf/io.py:26-37`); the disk-full write left one 802-byte partial record at 87.7 % of the file, every later length is then read at the wrong offset, and the reader skips the rest of the file (`io.py:309-327`). The 6489 records after the damage are intact on disk | A short disk-full episode silently removes hours of monitoring from offline analysis. Worth reporting upstream (a sync marker, or a resynchronising reader). Our exporter now resynchronises at the next offset where 20 records in a row parse, and records every skipped byte range in the capture (`export.log`) |
+
+- Exporter: resynchronising reader (same file discovery and record format as the project's). Regression: on B02 it reproduces the previous export exactly (102097 records, 0 damaged ranges); on B11 it recovers 53027 records (46537 before), skipping 802 bytes.
+- Fault catalog: `disk_full` declared **no expected events**, so its label validated trivially (X-22e). Now: a gatherer traceback and a gap on each monitoring source; all five found in B11. Past labels unchanged (D-14d).
+- Runbook: the only mention of a full disk was a *prediction* in RB-005 ("crash loop"); the observation is different (no restart). New entry **RB-012 "The data disk is full"** (`ai-draft`), RB-005 now points to it; a `summary` match key (glob on the event's code-written summary) so that `Errno 28` tracebacks retrieve RB-012 and a `FileNotFoundError` does not. This is a dev-data change before the freeze, like X-19c. Every B11 event retrieves an entry (fixture added).
+
+**Overlapping faults** (needed by the B03 protocol: ≥ 2 pairs starting within 20 s)
+- The harness ran faults strictly one after another, so "overlapping" faults were impossible (B02's L08/L09 were 6 s apart only because the second started when the first ended; X-22f).
+- A fault with `overlap: true` joins the previous one; a group runs as one schedule of inject and revert events in time order on the container clock (single-threaded: deterministic, testable against the fake camera); recovery is checked after the group; if anything fails mid-group every active fault is reverted. The scenario validator rejects groups whose faults share a resource (a unit and the units that `Requires=` it, the slow-signal model's control file, the calibration file, `/data`) and faults that act over time (the chiller ramp).
+- **X-22g** The first "plain hold" check inferred it from whether a class overrides `during`; the chiller ramp steps inside `inject`, so it passed. Caught by a test; now an explicit class flag.
+
+**B12: overlapping faults on the real camera** (three pairs: chiller crash + slowboard freeze 9 s later; `disk_full` + event-builder crash 15 s later; module 11 dead + gatherer stopped 10 s later). All six injected, reverted and recovered in the intended interleaving (e.g. chiller killed → slowboard frozen +10 s → resumed +50 s → chiller reconnected +60 s). Label evidence 10/10. Detector (thresholds from B00+B00b) on the run's own window: **10/10 expected events, all with the right module, 0 false alarms**; the 8 other events are the disk-full effects, which B12's labels do not declare (its harness process was started before the `disk_full` fix; labels stay as recorded, D-14d). A new compound effect: the event builder, crashed *during* the full disk, logged 49 `Errno 28` tracebacks on restart while writing its own files. The same `monitoring_*.bin` got a second damaged record (22 bytes), recovered by the exporter.
+- **X-22h** B12 ran on the same camera right after B11, so its capture contains both runs and B11's events first scored as 20 false alarms. `shiftassist-detect score --run-window` scores only the harness run (`run.json`); held-out runs use a fresh camera.
+
+**B03 generator** (`shiftassist-lab-generate SEED`): committed here, before the runbook freeze whose commit supplies the seed. Every catalog type once, three random extra faults, two overlapping compatible pairs 5–20 s apart (the second inside the first's hold), random units/modules/sensors/magnitudes/holds/gaps, `--extra` faults of post-freeze types inserted alone. Tested over 59 seeds for validity and determinism.
+
+**Decisions**
+- **D-22a Every fault the held-out set can draw runs on dev data first.** A fault that breaks the harness in B03 would waste the held-out run; B11 found four such defects.
+- **D-22b Our collector is more robust than the camera's reader, and says so.** It resynchronises past damaged records and records every skipped byte range; the camera's reader is not patched (only workarounds, as for the build bugs in P-09).
+- **D-22c Lab infrastructure is named `lab-*`**, so that nothing the assistant sees could not exist on a real camera.
+
+---
+
 ## Failure register
 
 Every failure in one table, with how it was found and where it was resolved. "Found by" matters: a failure found by a test or a measurement is worth more than one found by reading.
@@ -671,6 +722,14 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-20a | P-06 | P-20 | mypy import error | Local env without the `llm` extra; `httpx` undeclared | Local/CI mismatch | Declared; synced with extras | Resolved |
 | X-21a | P-21 | P-21 | Listing wrong answers | Question windows ran into the next fault | Ambiguous ground truth; baseline 62 %/50 % | One incident per question | Resolved |
 | X-21b | P-21 | P-21 | Baseline scored 1.0 | Precision counted any in-window event | Metric could not discriminate | Strict + lenient + count | Resolved |
+| X-22a | P-12 | P-22 | Dev run B11 | `DATA_TMPFS` documented but not implemented | disk_full could never run | Makefile option | Resolved |
+| X-22b | P-09 | P-22 | Dev run B11 aborted | Mock `BindsTo=` event builder; stopped by a crash, never restarted | Run aborted | `Upholds=` drop-in, verified live | Resolved |
+| X-22c | P-09 | P-22 | Detector events on B11 | Lab units named `sstcam-*` looked like camera software | Unrealistic events for the agent | Renamed `lab-*` | Resolved |
+| X-22d | P-22 | P-22 | Build hung | Docker credential helper waiting on keychain | Two hung builds | Scratch DOCKER_CONFIG for public pulls | Resolved |
+| X-22e | P-12 | P-22 | Label evidence 11/11 with none for disk_full | `disk_full` declared no expected events | Label validated trivially | Expectations from the observation | Resolved |
+| X-22f | P-12 | P-22 | Reading the harness for B03 | Faults could not overlap | Protocol not runnable | Overlap groups | Resolved |
+| X-22g | P-22 | P-22 | Failing test | "Plain hold" inferred from `during`; the ramp steps in `inject` | Ramp could overlap | Explicit flag | Resolved |
+| X-22h | P-22 | P-22 | 20 "false alarms" | Two runs in one capture | Wrong false-alarm count | `--run-window`; fresh camera for held-out | Resolved |
 | X-15b | P-14 | P-15 | Reading per-event table | Scorer can credit one event to two overlapping labels | Recall overstated by 1 | Min-cost one-to-one matching (P-16) | Resolved |
 | X-16a | P-16 | P-16 | Diff vs hand reading | Max matching broke ties by file order; gap credited to wrong fault | Right count, wrong attribution | Min-cost matching + test | Resolved |
 | X-15c | P-14 | P-15 | Held-out clean run | Threshold from short baseline too tight | 1.3 false alarms/h | Longer baseline / tail threshold | Open |
@@ -718,6 +777,9 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | D-20d | No model run until the author picks a provider | P-20 | this file |
 | D-21a | A no-LLM baseline is reported with every agent result | P-21 | this file |
 | D-21b | One incident per question | P-21 | this file |
+| D-22a | Every fault the held-out set can draw runs on dev data first | P-22 | this file |
+| D-22b | Our collector resynchronises past damaged records and reports what it skipped; the camera's reader is not patched | P-22 | this file |
+| D-22c | Lab infrastructure is named `lab-*`, never like camera software | P-22 | [lab README](../lab/camera-in-a-box/README.md) |
 
 ---
 

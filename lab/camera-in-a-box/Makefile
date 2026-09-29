@@ -1,8 +1,11 @@
 # camera-in-a-box: see README.md
 IMAGE ?= camera-in-a-box:dev
 NAME  ?= cam-01
+# Small tmpfs for /data, e.g. DATA_TMPFS=1g: required by the disk_full fault (never fills a real disk)
+DATA_TMPFS ?=
 
 -include .build/SOURCES.env
+, := ,
 
 .PHONY: stage build run shell status logs stop clean
 
@@ -21,6 +24,7 @@ run:              ## start one camera server (systemd as PID 1)
 	docker run -d --name $(NAME) --hostname $(NAME) \
 	  --privileged --cgroupns=host -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
 	  --tmpfs /run --tmpfs /run/lock --tmpfs /tmp \
+	  $(if $(DATA_TMPFS),--tmpfs /data:rw$(,)size=$(DATA_TMPFS)$(,)uid=1000$(,)gid=1000$(,)mode=755) \
 	  $(IMAGE)
 
 shell:

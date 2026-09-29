@@ -11,9 +11,9 @@ container "cam-01"  (AlmaLinux 9, systemd PID 1, journald persistent)
     ├── sstcam-slowboard      --mock (TCP protocol mock)         │ drop-ins:
     ├── sstcam-slowsignal     --mock via lab launcher            │ systemd/user/*.d/mock.conf
     ├── sstcam-eventbuilder   real C++ core, fed by ↓            ┘
-    ├── sstcam-eventbuilder-mock   `eventbuilder mock start empty`   (extra unit)
+    ├── lab-eventbuilder-mock `eventbuilder mock start empty` (extra unit; upheld by the event builder)
     ├── sstcam-controller     --simulated (FSM adapter)             (extra unit)
-    ├── sstcam-connect        once at boot: chiller/slowboard `connect` (extra unit)
+    ├── lab-connect           once at boot: chiller/slowboard `connect` (extra unit)
     ├── sstcam-target / -pointing   upstream units, no mock (pointing Requires= slowsignal)
     └── sstcam-backplane      masked: first camera version has no backplane
 ```

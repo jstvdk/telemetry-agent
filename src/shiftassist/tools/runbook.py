@@ -13,6 +13,7 @@ Two ways in:
   channel    event channel
   rule       event rule_id
   template   glob on the event's ``evidence.signature`` (new_signature events)
+  summary    glob on the event's code-written summary (e.g. an errno in a traceback line)
 Other keys (``simultaneous``, ``from_start``) describe the symptom for humans and are not checked.
 """
 
@@ -28,7 +29,7 @@ import yaml
 
 from shiftassist.detect.model import Event
 
-CHECKED_KEYS = {"kind", "subsystem", "entity", "channel", "rule", "template"}
+CHECKED_KEYS = {"kind", "subsystem", "entity", "channel", "rule", "template", "summary"}
 
 
 @dataclass(frozen=True)
@@ -88,6 +89,8 @@ def matches(m: dict[str, Any], ev: Event) -> bool:
     if "channel" in m and not _any(ev.channel, m["channel"]):
         return False
     if "rule" in m and not _any(ev.rule_id, m["rule"]):
+        return False
+    if "summary" in m and not _any(ev.summary, m["summary"], glob=True):
         return False
     return not (
         "template" in m and not _any(ev.evidence.get("signature"), m["template"], glob=True)

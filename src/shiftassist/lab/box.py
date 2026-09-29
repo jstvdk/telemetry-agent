@@ -94,7 +94,7 @@ class Box:
         )
 
     def unit(self, short: str) -> str:
-        return short if short.startswith(UNIT_PREFIX) else f"{UNIT_PREFIX}{short}.service"
+        return short if short.endswith(".service") else f"{UNIT_PREFIX}{short}.service"
 
     def unit_props(self, short: str, *props: str) -> dict[str, str]:
         out = self.systemctl("show", self.unit(short), *(f"-p{p}" for p in props), action="probe")
@@ -114,6 +114,7 @@ class Box:
         out = self.systemctl(
             "list-units",
             "sstcam*",
+            "lab-*",
             "--failed",
             "--plain",
             "--no-legend",

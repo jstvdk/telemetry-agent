@@ -177,3 +177,64 @@ def test_chiller_ramp_steps_and_clears_override(tmp_path: Path) -> None:
     run(sc, box(cam), tmp_path)
     temps = [c.split()[-1] for c in cam.cmds if "mock temperature" in c]
     assert temps[:4] == ["23.50", "24.00", "24.50", "25.00"] and temps[4] == "0"
+
+
+# --- overlapping faults ------------------------------------------------------------------------
+
+
+def test_overlapping_faults_run_as_one_schedule(tmp_path: Path) -> None:
+    cam = FakeCamera()
+    sc = scenario(
+        {"kind": "process_crash", "at": "1m", "unit": "chiller", "hold": "60s"},
+        {"kind": "process_hang", "at": "75s", "unit": "slowboard", "hold": "30s", "overlap": True},
+        {"kind": "module_dead", "at": "5m", "module": 5, "hold": "30s"},
+    )
+    res = run(sc, box(cam), tmp_path)
+    assert res.aborted is None
+    crash, hang, dead = res.labels
+    # chiller crashed at 60 s, slowboard frozen at 75 s *while* the chiller was still down
+    assert (crash.start, hang.start) == ("2026-09-28T18:27:40.000Z", "2026-09-28T18:27:55.000Z")
+    assert (hang.end, crash.end) == ("2026-09-28T18:28:25.000Z", "2026-09-28T18:28:40.000Z")
+    order = [
+        next(i for i, c in enumerate(cam.cmds) if pat in c)
+        for pat in ("SIGKILL sstcam-chiller", "kill -STOP", "kill -CONT", "chiller connect")
+    ]
+    assert order == sorted(order)
+    assert dead.start == "2026-09-28T18:31:40.000Z"  # groups do not delay the schedule
+
+
+def test_overlap_rules() -> None:
+    with pytest.raises(ValidationError, match="overlap on"):  # one control file for the model
+        scenario(
+            {"kind": "sensor_fault", "at": "1m", "module": 3, "hold": "60s"},
+            {"kind": "module_dead", "at": "70s", "module": 9, "hold": "30s", "overlap": True},
+        )
+    with pytest.raises(ValidationError, match="overlap on"):  # slowsignal failing stops pointing
+        scenario(
+            {"kind": "calibration_missing", "at": "1m", "hold": "60s"},
+            {
+                "kind": "process_crash",
+                "at": "70s",
+                "unit": "pointing",
+                "hold": "30s",
+                "overlap": True,
+            },
+        )
+    with pytest.raises(ValidationError, match="not a plain hold"):
+        scenario(
+            {"kind": "chiller_ramp", "at": "1m", "to_c": 26, "over": "2m"},
+            {"kind": "process_hang", "at": "70s", "unit": "slowboard", "overlap": True},
+        )
+    with pytest.raises(ValidationError, match="first fault"):
+        scenario({"kind": "gatherer_down", "at": "1m", "overlap": True})
+
+
+def test_failure_mid_group_reverts_every_active_fault(tmp_path: Path) -> None:
+    cam = FakeCamera(fail_on="kill -STOP")  # the second inject fails
+    sc = scenario(
+        {"kind": "process_crash", "at": "1m", "unit": "chiller", "hold": "60s"},
+        {"kind": "process_hang", "at": "75s", "unit": "slowboard", "hold": "30s", "overlap": True},
+    )
+    with pytest.raises(Exception, match="kill -STOP"):
+        run(sc, box(cam), tmp_path)
+    assert any("chiller connect" in c for c in cam.cmds), "the chiller fault was reverted"

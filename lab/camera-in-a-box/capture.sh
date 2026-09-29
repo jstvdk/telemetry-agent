@@ -2,7 +2,7 @@
 # Copy everything one camera produced into lab/captures/<name>/ (git-ignored):
 #   data/            /data/SSTCAM as written (per-process logs, central log, config snapshot, .bin)
 #   journal.jsonl    system + user journal, JSON export (restarts, exits, stdout of services)
-#   monitoring.jsonl gatherer monitoring decoded with the project's own reader
+#   monitoring.jsonl gatherer monitoring, decoded (resynchronises past damaged records; export.log)
 #   units.txt        final unit states and restart counters
 #   manifest.json    image labels, container, time window
 set -euo pipefail
@@ -21,8 +21,10 @@ docker exec "$C" journalctl -o json --no-pager > "$OUT/journal.jsonl"
 # capture is the one in git, whatever image the camera runs.
 docker cp "$(dirname "$0")/lab/export_monitoring.py" "$C:/opt/sstcam/lab/export_monitoring.py"
 docker exec "$C" chmod 644 /opt/sstcam/lab/export_monitoring.py
+# stderr keeps the exporter's report: message count and any damaged byte ranges it skipped (R21)
 docker exec "$C" ucam python /opt/sstcam/lab/export_monitoring.py /data/SSTCAM/monitoring \
-  > "$OUT/monitoring.jsonl"
+  > "$OUT/monitoring.jsonl" 2> "$OUT/export.log"
+cat "$OUT/export.log" >&2
 docker exec "$C" ucam systemctl --user show 'sstcam*' -p Id -p ActiveState -p SubState -p NRestarts \
   --no-pager > "$OUT/units.txt"
 python3 - "$OUT" "$C" <<'PY'

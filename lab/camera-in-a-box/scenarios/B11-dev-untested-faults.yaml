@@ -1,0 +1,18 @@
+id: B11
+title: Dev run of every fault not exercised yet (harness check before held-out B03)
+description: >
+  Development data, inspected freely. Runs the catalog entries that have never run (disk_full;
+  crashes of gatherer, eventbuilder, target, controller, pointing; hangs of slowsignal and
+  eventbuilder) so that a broken fault is found here, not in the held-out run. Needs a camera
+  started with DATA_TMPFS (disk_full refuses otherwise).
+settle: 2m
+cooldown: 3m
+faults:
+  - {kind: process_crash, at: 2m, unit: gatherer, hold: 30s}
+  - {kind: process_crash, at: 5m, unit: eventbuilder, hold: 30s}
+  - {kind: process_crash, at: 8m, unit: target, hold: 30s}
+  - {kind: process_crash, at: 11m, unit: controller, hold: 30s}
+  - {kind: process_crash, at: 14m, unit: pointing, hold: 30s}
+  - {kind: process_hang, at: 17m, unit: slowsignal, hold: 60s}
+  - {kind: process_hang, at: 20m, unit: eventbuilder, hold: 60s}
+  - {kind: disk_full, at: 23m, hold: 2m}

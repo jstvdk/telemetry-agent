@@ -1,0 +1,15 @@
+id: B12
+title: Dev run of overlapping faults (harness check before held-out B03)
+description: >
+  Development data. Three pairs of faults whose second starts while the first is still held, to
+  check the overlap schedule on the real camera (inject/revert order, labels, recovery after the
+  pair) before the generated held-out run uses it. Needs DATA_TMPFS (disk_full).
+settle: 2m
+cooldown: 3m
+faults:
+  - {kind: process_crash, at: 2m, unit: chiller, hold: 60s}
+  - {kind: process_hang, at: 2m10s, unit: slowboard, hold: 40s, overlap: true}
+  - {kind: disk_full, at: 7m, hold: 90s}
+  - {kind: process_crash, at: 7m15s, unit: eventbuilder, hold: 30s, overlap: true}
+  - {kind: module_dead, at: 12m, module: 11, sensors: [sipm1], hold: 60s}
+  - {kind: gatherer_down, at: 12m10s, hold: 40s, overlap: true}

@@ -29,3 +29,4 @@ Front matter: `id`, `title`, `status`, `verified_by`, `verified_on`, `components
 | [RB-009](RB-009-chiller-temperatures-change.md) | Chiller temperatures change | ai-draft |
 | [RB-010](RB-010-known-benign-and-false-readings.md) | Known benign messages and known false readings | ai-draft |
 | [RB-011](RB-011-session-does-not-start.md) | No camera server starts after a reboot | ai-draft |
+| [RB-012](RB-012-data-disk-full.md) | The data disk is full | ai-draft |

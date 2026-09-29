@@ -41,11 +41,27 @@ class Injected(BaseModel):
     details: dict[str, Any] = {}
 
 
+# Units that stop when another unit stops (systemd Requires=): a fault on the key touches both.
+DEPENDENTS = {"slowsignal": ("pointing",)}
+
+
 class FaultBase(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     at: str  # offset from run start, e.g. '3m'
     hold: str = "60s"
+    overlap: bool = False  # start at `at` even though the previous fault is still active
     subsystem: ClassVar[str] = ""
+
+    def resources(self) -> set[str]:
+        """What this fault takes over; faults running at the same time must not share any."""
+        unit = getattr(self, "unit", None)
+        if unit is None:
+            return {f"kind:{self.kind}"}  # type: ignore[attr-defined]
+        return {f"unit:{u}" for u in (unit, *DEPENDENTS.get(unit, ()))}
+
+    # inject returns at once and the fault is then just held, so it can share time with others.
+    # False for faults that act over time inside inject/during (the chiller ramp steps).
+    plain_hold: ClassVar[bool] = True
 
     def inject(self, box: Box, st: Injected) -> None:
         raise NotImplementedError
@@ -180,6 +196,9 @@ class GathererDown(FaultBase):
 
     kind: Literal["gatherer_down"]
 
+    def resources(self) -> set[str]:
+        return {"unit:gatherer"}
+
     def inject(self, box: Box, st: Injected) -> None:
         st.t_inject = box.now()
         box.systemctl("stop", box.unit("gatherer"), action="inject")
@@ -207,6 +226,9 @@ class CalibrationMissing(FaultBase):
     restarted: it crash-loops, and pointing (Requires= slowsignal) goes down with it."""
 
     kind: Literal["calibration_missing"]
+
+    def resources(self) -> set[str]:
+        return {"unit:slowsignal", "unit:pointing", "file:calibration"}
 
     def inject(self, box: Box, st: Injected) -> None:
         box.sh(f"mv {CALIB} {CALIB}.lab-hidden", action="inject")
@@ -245,7 +267,11 @@ class DiskFull(FaultBase):
     """Fill the data volume. Refuses unless /data is a small tmpfs (never fill a real disk)."""
 
     kind: Literal["disk_full"]
+
     max_volume_gib: float = 4.0
+
+    def resources(self) -> set[str]:
+        return {"data"}
 
     def inject(self, box: Box, st: Injected) -> None:
         out = box.sh("df -B1 --output=fstype,size,avail /data | tail -1", root=True, action="probe")
@@ -269,8 +295,21 @@ class DiskFull(FaultBase):
         box.sh(f"rm -f {FILL}", root=True, action="revert")
         st.t_revert = box.now()
 
+    def expected(self, box: Box, st: Injected) -> list[ExpectedEvent]:
+        # Observed in B11 (P-22): no server exits; the gatherer logs one OSError traceback per
+        # failed write, and monitoring written while the disk is full is lost, not delayed.
+        hold = seconds(self.hold) + 30
+        return [
+            self._ev(box, "traceback", "gatherer", st.t_inject, 30),
+            *(self._ev(box, "gap", s, st.t_inject, hold) for s in PUBLISHERS),
+        ]
+
     def root_cause(self) -> str:
-        return "The data volume was full; writes of logs and monitoring files failed."
+        return (
+            "The data volume was full: the gatherer could not write monitoring (lost for the "
+            "duration, with a traceback per failed write) and servers that write files logged "
+            "OSError tracebacks; nothing crashed."
+        )
 
 
 # --- slow-signal (per TARGET module) faults, via the lab model's control file ------------------
@@ -279,6 +318,10 @@ class DiskFull(FaultBase):
 class _SlowSignalFault(FaultBase):
     module: int = Field(ge=0, le=31)
     sensors: list[str] = ["sipm1"]
+
+    def resources(self) -> set[str]:
+        # one control file holds the model's whole fault list; the model runs in slow-signal
+        return {"file:slowsignal-control", "unit:slowsignal", "unit:pointing"}
 
     def _entry(self, st: Injected) -> dict[str, Any]:
         raise NotImplementedError
@@ -380,6 +423,7 @@ class ChillerRamp(FaultBase):
     was noticed, list only supply and return; they are kept as recorded)."""
 
     kind: Literal["chiller_ramp"]
+    plain_hold: ClassVar[bool] = False
     to_c: float = 30.0
     start_c: float = 23.0  # mock room temperature when the chiller is not running
     over: str = "5m"
