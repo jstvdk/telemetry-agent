@@ -8,9 +8,9 @@ components: [gatherer]
 matches:
   - {kind: gap, subsystem: gatherer, rule: R-STALL-01}
 sources:
-  - R20 (a frozen gatherer loses no monitoring; it writes the queued messages late with their original timestamps)
-  - sstcam-gatherer/sstcam_gatherer/handler.py:76 (the gatherer stamps each message with its own receive time)
-  - P-17 (lab: 61 s freeze → 2021 messages from 4 sources up to 61 s late, none lost)
+  - 'R20 (a frozen gatherer loses no monitoring; it writes the queued messages late with their original timestamps)'
+  - 'sstcam-gatherer/sstcam_gatherer/handler.py:76 (the gatherer stamps each message with its own receive time)'
+  - 'P-17 (lab: 61 s freeze → 2021 messages from 4 sources up to 61 s late, none lost)'
 ---
 ## Symptom
 The gatherer's output stops for all sources at once; when it resumes, the messages it writes carry timestamps from the silent period. Nothing is lost.

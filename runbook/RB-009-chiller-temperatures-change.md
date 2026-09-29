@@ -9,8 +9,8 @@ matches:
   - {kind: trend, subsystem: chiller}
   - {kind: trend, subsystem: slowsignal, entity: null, rule: R-TRD-02}
 sources:
-  - sstcam-telecom/sstcam_telecom/protobuf/chiller/v1alpha1/telemetry.proto:6-27 (supply/return/heater/heat-exchanger temperatures, setpoints, is_running, fault and flow flags)
-  - P-13 (lab: supply temperature ramp 23 → 30 °C seen at +67 °C/h, all four chiller temperatures moved)
+  - 'sstcam-telecom/sstcam_telecom/protobuf/chiller/v1alpha1/telemetry.proto:6-27 (supply/return/heater/heat-exchanger temperatures, setpoints, is_running, fault and flow flags)'
+  - 'P-13 (lab: supply temperature ramp 23 → 30 °C seen at +67 °C/h, all four chiller temperatures moved)'
 ---
 ## Symptom
 Chiller temperatures (supply, return, heater, heat exchanger) rise or fall faster than normal. Possibly followed, minutes later, by all camera modules warming together (a camera-wide trend).

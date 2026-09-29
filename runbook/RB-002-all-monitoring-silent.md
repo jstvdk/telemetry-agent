@@ -6,12 +6,12 @@ verified_by:
 verified_on:
 components: [gatherer, host]
 matches:
-  - {kind: gap, subsystem: [chiller, slowboard, eventbuilder, slowsignal], simultaneous: all}
+  - {kind: gap, subsystem: [chiller, slowboard, eventbuilder, slowsignal], entity: null, simultaneous: all}
   - {kind: restart, subsystem: gatherer}
 sources:
-  - sstcam-orchestrator/units/sstcam-gatherer.service:4 (every server is Requisite= on the session; the gatherer records monitoring and the central log)
-  - R11 (servers starting before the gatherer listens lose their start-up records in the central log)
-  - P-13 (lab: gatherer stopped 90 s → all four sources silent 108 s, about 18 s of gatherer start-up on top)
+  - 'sstcam-orchestrator/units/sstcam-gatherer.service:4 (every server is Requisite= on the session; the gatherer records monitoring and the central log)'
+  - 'R11 (servers starting before the gatherer listens lose their start-up records in the central log)'
+  - 'P-13 (lab: gatherer stopped 90 s → all four sources silent 108 s, about 18 s of gatherer start-up on top)'
 ---
 ## Symptom
 Every monitoring source goes silent within a few seconds of each other, and the data for that period never appears later. (If it appears later, late, see RB-003.)

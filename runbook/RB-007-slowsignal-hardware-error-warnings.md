@@ -9,10 +9,10 @@ matches:
   - {kind: log_burst, subsystem: slowsignal}
   - {kind: new_signature, template: "SLOWSIGNAL-SERVER|WARNING|Hardware error detected:*"}
 sources:
-  - sstcam-slowsignal/sstcam_slowsignal/utils/conversions.py:212 (the warning; fault bits of the SPI temperature word)
-  - R18 (the warning names neither module nor sensor; the published temperature stays plausible)
-  - R6 (the server does no rate limiting: one warning per bad reading, ~1/s per faulty sensor, and far more with many)
-  - P-13 (lab: one faulty RTD → 90 warnings at 0.93/s)
+  - 'sstcam-slowsignal/sstcam_slowsignal/utils/conversions.py:212 (the warning; fault bits of the SPI temperature word)'
+  - 'R18 (the warning names neither module nor sensor; the published temperature stays plausible)'
+  - 'R6 (the server does no rate limiting: one warning per bad reading, ~1/s per faulty sensor, and far more with many)'
+  - 'P-13 (lab: one faulty RTD → 90 warnings at 0.93/s)'
 ---
 ## Symptom
 Repeated WARNING lines from the slow-signal server: `Hardware error detected:` followed by one line per fault bit (e.g. `Sensor Hard Fault`, `ADC Out-of-Range`, `Temperature value not valid`).

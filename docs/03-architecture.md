@@ -107,12 +107,17 @@ Why SQLite: one file, zero setup, WAL mode lets tools read while the collector w
 
 All tools are read-only, bounded in output size, and return JSON with a `truncated` flag when they hit a cap. Time windows are relative to the newest record in the snapshot, so answers are reproducible.
 
+**As built (P-19):** tools read a *snapshot*: a capture directory, its detector events, the baseline profile and the runbook (`shiftassist.tools.Snapshot`). A snapshot is the unit of evaluation. The SQLite timeline (ADR-0008) remains the design for live collection. `get_event` also returns the runbook entries whose `matches` fit the event (deterministic retrieval), with any condition the code cannot check in `applies_if`.
+
 | Tool | Input | Returns | Why this shape |
 |---|---|---|---|
 | `query_timeline` | `camera?`, `subsystem?`, `kind?`, `min_severity?`, `since_minutes` or `start`/`end`, `limit` | list of events (id, ts, kind, severity, summary) | Most questions start here. Summaries are short, so it costs few tokens |
 | `get_event` | `event_id` | full event incl. evidence, raw lines, traceback | Drill-down on demand instead of dumping everything up front |
 | `get_telemetry_features` | `camera`, `channel`, window | n, mean, min, max, slope per hour, z-score vs. baseline, gaps | Principle 3: features, not raw series |
 | `search_runbook` | `query`, `limit` | sections with `section_id`, `status` (verified / ai-draft), text | Knowledge in files, status visible to the model and the validator |
+| `get_unit_history` | `unit`, window | systemd lifecycle (start / stop / exit with status) and tracebacks | Runbook checks ask "did it exit, or is it frozen?"; tracebacks exist only in the journal (R10) |
+| `search_logs` | window, `process?`, `min_level`, `contains?` | entries with refs + template counts | Bursts are summarised as templates, not dumped |
+| `get_runbook_entry` | `entry_id` | the whole entry with status and sources | Search returns the symptom only; the full entry on demand |
 | `submit_answer` | structured final answer (below) | — | Ends the loop; makes output machine-checkable |
 
 The v0 raw-text tools (`list_topics`, `get_recent_messages`, `count_keywords`) stay available in the **baseline** configuration for experiment E1.

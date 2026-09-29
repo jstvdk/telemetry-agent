@@ -32,6 +32,7 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-16](#p-16--scorer-v1-one-event-one-expected-event) | 2026-09-29 | Scorer v1 | One event credits one expected event; B02 15/16 now computed, not hand-corrected | scorer commit |
 | [P-17](#p-17--a-frozen-gatherer-late-arrival-instead-of-gaps) | 2026-09-29 | Gatherer stall rule | Receive times recovered from existing data; freeze detected as write silence + late backlog; 0 new events elsewhere | stall commit |
 | [P-18](#p-18--runbook-draft-and-the-b03-protocol) | 2026-09-29 | Runbook draft + B03 protocol | 11 symptom entries, all `ai-draft`, 27 points for the operator; held-out protocol fixed before any freeze | runbook commit |
+| [P-19](#p-19--read-only-tools-for-the-llm-layer) | 2026-09-29 | Read-only tools | 7 tools from one registry over a snapshot; every real B01/B02 event retrieves a runbook entry | tools commit |
 
 ---
 
@@ -556,6 +557,31 @@ Label validation of the corrected expectation on B02: found (60.9 s silence, 212
 
 ---
 
+## P-19 · Read-only tools for the LLM layer
+
+**Goal.** The tools the agent (and any MCP client) will use, built while the long baseline and the dev run record. They do not depend on the runbook being frozen.
+
+**Done.** `src/shiftassist/tools/`:
+- `registry.py`: `@tool` registers a typed function once; the input schema is generated from its type hints, the description from its docstring; Anthropic and OpenAI-compatible tool lists come from the same registry (ADR-0006). Output is JSON capped per tool, with `truncated` set when a list had to be shortened. Invalid arguments and unknown IDs come back as readable errors instead of breaking the loop.
+- `snapshot.py`: the frozen view the tools read (capture + events + profile + runbook). Relative windows are measured from the newest data, not the wall clock.
+- `runbook.py`: entries parsed into status, sources, sections and `matches`; retrieval by event (deterministic) and BM25 keyword search.
+- `core.py`: `query_timeline`, `get_event` (evidence, the raw journal/log lines behind it, matching runbook entries), `get_unit_history`, `search_logs`, `get_telemetry_features` (features, not samples; slope relative to the other modules; the baseline's slope spread), `search_runbook`, `get_runbook_entry`.
+- Tests: registry contract (one list, both formats, the snapshot never visible to the model), windows and filters, drill-down to raw lines, unit history, a 12 °C/h drift recovered as 10–14 °C/h relative slope, output caps, argument errors; runbook well-formedness; retrieval checked against the 45 real B01/B02 detector events (fixture).
+
+Smoke test on B02: the 1.5 °C/h hard drift reads as a relative slope of 1.48 °C/h; the calibration traceback event resolves to its 5 raw journal tracebacks with the missing file's path and to RB-005.
+
+**Decisions**
+- **D-19a Tools read a snapshot (capture directory), not the SQLite timeline.** The capture is what is labelled and scored; SQLite (ADR-0008) remains the design for live collection. Recorded in [03 §4](03-architecture.md#4-tool-contract).
+- **D-19b Three tools beyond the four in the architecture** (`get_unit_history`, `search_logs`, `get_runbook_entry`): the runbook's *Checks* ask questions (did the unit exit? which exception? what fault bits?) that the original four cannot answer.
+- **D-19c Runbook retrieval by event is deterministic; conditions the code cannot check are shown, not dropped.** `get_event` lists entries whose `matches` fit the event; a condition such as "every subsystem silent at once" is returned as `applies_if` for the model to verify.
+
+**Failures / dead ends (mine)**
+- **X-19a** Runbook `sources` containing `: ` were parsed by YAML as dictionaries (seen in the smoke test as `{'P-13 (lab': …}`). All sources quoted; a test asserts every source is text.
+- **X-19b** A single-module gap retrieved RB-002 and RB-011 ("all monitoring silent"), because `simultaneous: all` is not checkable per event. Fixed with `entity: null` and the `applies_if` report (D-19c); tested.
+- **X-19c** One real B01 event matched no entry: pointing's stop hook logging `No server open at address` when slow-signal goes down. RB-006 described it in prose but not in `matches`. Added. This is a runbook change informed by dev data, before the freeze, which the protocol allows.
+
+---
+
 ## Failure register
 
 Every failure in one table, with how it was found and where it was resolved. "Found by" matters: a failure found by a test or a measurement is worth more than one found by reading.
@@ -585,6 +611,9 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-15a | P-12 | P-15 | Label validation | Gatherer hang labelled as gaps; data is buffered, not lost | 3 invalid expected events | Excluded; catalog + R-STALL-01 (P-17) | Resolved |
 | X-17a | P-17 | P-17 | Failing test | Late defined as > half the silence; half the backlog uncounted | Evidence understated | Lateness bound from baseline | Resolved |
 | X-18a | P-18 | P-18 | Checking known templates | Runbook match pattern guessed, would never retrieve its entry | Entry unreachable | Real template; patterns to be tested with retrieval | Resolved |
+| X-19a | P-18 | P-19 | Smoke test | Unquoted YAML sources parsed as dicts | Garbled citations | Quoted; test | Resolved |
+| X-19b | P-18 | P-19 | Retrieval on real events | Module gap retrieved "all silent" entries | Noisy retrieval | `entity: null` + `applies_if`; test | Resolved |
+| X-19c | P-18 | P-19 | Retrieval on real events | Pointing stop-hook error matched no entry | Event without guidance | Added to RB-006 | Resolved |
 | X-15b | P-14 | P-15 | Reading per-event table | Scorer can credit one event to two overlapping labels | Recall overstated by 1 | Min-cost one-to-one matching (P-16) | Resolved |
 | X-16a | P-16 | P-16 | Diff vs hand reading | Max matching broke ties by file order; gap credited to wrong fault | Right count, wrong attribution | Min-cost matching + test | Resolved |
 | X-15c | P-14 | P-15 | Held-out clean run | Threshold from short baseline too tight | 1.3 false alarms/h | Longer baseline / tail threshold | Open |
@@ -623,6 +652,9 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | D-18c | Operator decisions are never invented; `ai-draft` until verified | P-18 | [runbook](../runbook/README.md) |
 | D-18d | "Not in the runbook" is a scored answer | P-18 | [runbook](../runbook/README.md) |
 | D-18e | B03 protocol fixed before the freezes (seeded from the runbook-freeze commit) | P-18 | this file |
+| D-19a | Tools read a capture snapshot; SQLite stays for live collection | P-19 | [03 §4](03-architecture.md#4-tool-contract) |
+| D-19b | Three extra tools for the runbook's checks | P-19 | [03 §4](03-architecture.md#4-tool-contract) |
+| D-19c | Deterministic runbook retrieval by event; unchecked conditions shown as `applies_if` | P-19 | this file |
 
 ---
 

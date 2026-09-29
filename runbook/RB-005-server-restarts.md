@@ -10,11 +10,11 @@ matches:
   - {kind: traceback}
   - {kind: new_signature, template: "traceback|*"}
 sources:
-  - R10 (crash tracebacks reach only the journal, one line per record at INFO)
-  - R3 (each process start opens a new per-process log file)
-  - R4 (real incident: calibration CSV removed on the branch while config and loader still need it → slow-signal crash loop, 30+ restarts in minutes)
-  - sstcam-orchestrator/units/*.service (Restart=on-failure on every server)
-  - P-13 (lab: calibration file hidden ~70 s → 6 FileNotFoundError tracebacks, 19 stop/exit events)
+  - 'R10 (crash tracebacks reach only the journal, one line per record at INFO)'
+  - 'R3 (each process start opens a new per-process log file)'
+  - 'R4 (real incident: calibration CSV removed on the branch while config and loader still need it → slow-signal crash loop, 30+ restarts in minutes)'
+  - 'sstcam-orchestrator/units/*.service (Restart=on-failure on every server)'
+  - 'P-13 (lab: calibration file hidden ~70 s → 6 FileNotFoundError tracebacks, 19 stop/exit events)'
 ---
 ## Symptom
 systemd restarts a camera server. Either once (exit, start, then stable) or repeatedly (a crash loop: exit, start, exit …). Tracebacks, if any, are in the journal only (R10).

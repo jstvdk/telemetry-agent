@@ -8,11 +8,11 @@ components: [chiller, slowboard, eventbuilder, slowsignal, gatherer]
 matches:
   - {kind: gap, subsystem: [chiller, slowboard, eventbuilder, slowsignal], entity: null}
 sources:
-  - R7, R7 ✔ (chiller/slowboard publish nothing until `connect`; not reconnected after a restart)
-  - R14 (a healthy camera writes no logs; liveness comes from monitoring cadence)
-  - sstcam-orchestrator/units/sstcam-chiller.service:13 (Restart=on-failure)
-  - sstcam-cli/sstcam_cli/cli/chiller/{connect,ping_server,ping_hardware}.py (same for slowboard)
-  - P-13 (lab: chiller killed → 127 s silent until reconnect; slowboard frozen 90 s → 91 s silent, nothing in the journal)
+  - 'R7, R7 ✔ (chiller/slowboard publish nothing until `connect`; not reconnected after a restart)'
+  - 'R14 (a healthy camera writes no logs; liveness comes from monitoring cadence)'
+  - 'sstcam-orchestrator/units/sstcam-chiller.service:13 (Restart=on-failure)'
+  - 'sstcam-cli/sstcam_cli/cli/chiller/{connect,ping_server,ping_hardware}.py (same for slowboard)'
+  - 'P-13 (lab: chiller killed → 127 s silent until reconnect; slowboard frozen 90 s → 91 s silent, nothing in the journal)'
 ---
 ## Symptom
 No monitoring from one subsystem (chiller, slowboard, event builder, or the whole slow-signal server) for longer than its normal interval (1 s) allows. The other subsystems keep reporting.

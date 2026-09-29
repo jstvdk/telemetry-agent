@@ -7,13 +7,14 @@ verified_on:
 components: [pointing, slowsignal]
 matches:
   - {kind: restart, subsystem: pointing}
+  - {kind: new_signature, template: "POINTING-CLI|ERROR|No server open at address*"}
 sources:
-  - sstcam-orchestrator/units/sstcam-pointing.service:5 (Requires=sstcam-slowsignal.service)
-  - R5 (each slow-signal crash stops pointing too)
-  - P-13 (lab: slow-signal crash loop → pointing stopped 8 times, and its stop hook failed too)
+  - 'sstcam-orchestrator/units/sstcam-pointing.service:5 (Requires=sstcam-slowsignal.service)'
+  - 'R5 (each slow-signal crash stops pointing too)'
+  - 'P-13 (lab: slow-signal crash loop → pointing stopped 8 times, and its stop hook failed too)'
 ---
 ## Symptom
-`sstcam-pointing.service` is stopped and started, possibly many times, without a traceback of its own.
+`sstcam-pointing.service` is stopped and started, possibly many times, without a traceback of its own. Its stop hook may log `No server open at address: localhost:<port>` (ERROR, from `POINTING-CLI`): the hook tries to reach a server that is already down.
 
 ## Meaning
 The pointing unit `Requires=` the slow-signal unit. Whenever slow-signal stops or crashes, systemd stops pointing too, then starts it again with slow-signal. The cause is almost never in pointing.

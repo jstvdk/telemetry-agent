@@ -9,9 +9,9 @@ matches:
   - {kind: new_signature, template: "CONTROLLER-SERVER|WARNING|Simulation override is enabled*"}
   - {kind: limit, subsystem: slowsignal, channel: [temperature_i2c_aux, temperature_i2c_primary]}
 sources:
-  - R17 (I2C aux/primary board temperature decoder wrong for every negative value)
-  - R15 (flat or impossible mock channels in the lab)
-  - P-11 (the controller's "simulation override" notice is the only WARNING in a clean lab run)
+  - 'R17 (I2C aux/primary board temperature decoder wrong for every negative value)'
+  - 'R15 (flat or impossible mock channels in the lab)'
+  - 'P-11 (the controller''s "simulation override" notice is the only WARNING in a clean lab run)'
 ---
 ## Symptom
 A message or a value that looks alarming but is known not to be a camera problem.

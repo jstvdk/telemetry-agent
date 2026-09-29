@@ -8,9 +8,9 @@ components: [slowsignal, TARGET module]
 matches:
   - {kind: gap, subsystem: slowsignal, entity: "tm*"}
 sources:
-  - P-12 (slow-signal monitoring is one message per TARGET module per second, identified by tm_slot)
-  - P-13 (lab: module 5 silent 2 min → 122 s gap; the other 31 modules normal)
-  - R18 (slow-signal log messages do not name the module)
+  - 'P-12 (slow-signal monitoring is one message per TARGET module per second, identified by tm_slot)'
+  - 'P-13 (lab: module 5 silent 2 min → 122 s gap; the other 31 modules normal)'
+  - 'R18 (slow-signal log messages do not name the module)'
 ---
 ## Symptom
 One module (e.g. `tm07`) stops sending slow-signal monitoring while the other modules continue.

@@ -7,10 +7,10 @@ verified_on:
 components: [session, orchestrator]
 matches:
   - {kind: restart, subsystem: session}
-  - {kind: gap, subsystem: [chiller, slowboard, eventbuilder, slowsignal], simultaneous: all, from_start: true}
+  - {kind: gap, subsystem: [chiller, slowboard, eventbuilder, slowsignal], entity: null, simultaneous: all, from_start: true}
 sources:
-  - R9 (session start fails if /data/SSTCAM/current already exists; every server is Requisite= on the session). Predicted from code, not reproduced.
-  - sstcam-orchestrator/units/sstcam-gatherer.service:4 (Requisite=sstcam-session.service; the same in every server unit)
+  - 'R9 (session start fails if /data/SSTCAM/current already exists; every server is Requisite= on the session). Predicted from code, not reproduced.'
+  - 'sstcam-orchestrator/units/sstcam-gatherer.service:4 (Requisite=sstcam-session.service; the same in every server unit)'
 ---
 ## Symptom
 After a reboot or power loss, none of the camera servers is running, and there is no monitoring at all.

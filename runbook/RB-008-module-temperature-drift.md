@@ -8,9 +8,9 @@ components: [slowsignal, TARGET module, cooling]
 matches:
   - {kind: trend, subsystem: slowsignal, entity: "tm*"}
 sources:
-  - P-14 (trend rule on each module's deviation from the camera-wide median; shared changes cancel)
-  - P-12, D-12d (lab slow-signal values: realistic structure, assumed nominal numbers)
-  - P-15 (lab: 1.5 °C/h drift on one sensor detected after 131 s)
+  - 'P-14 (trend rule on each module''s deviation from the camera-wide median; shared changes cancel)'
+  - 'P-12, D-12d (lab slow-signal values: realistic structure, assumed nominal numbers)'
+  - 'P-15 (lab: 1.5 °C/h drift on one sensor detected after 131 s)'
 ---
 ## Symptom
 A temperature on one module changes faster than normal *relative to the other modules*. Changes shared by all modules (ambient, chiller) are removed before this test, so this is local.
