@@ -33,6 +33,7 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-17](#p-17--a-frozen-gatherer-late-arrival-instead-of-gaps) | 2026-09-29 | Gatherer stall rule | Receive times recovered from existing data; freeze detected as write silence + late backlog; 0 new events elsewhere | stall commit |
 | [P-18](#p-18--runbook-draft-and-the-b03-protocol) | 2026-09-29 | Runbook draft + B03 protocol | 11 symptom entries, all `ai-draft`, 27 points for the operator; held-out protocol fixed before any freeze | runbook commit |
 | [P-19](#p-19--read-only-tools-for-the-llm-layer) | 2026-09-29 | Read-only tools | 7 tools from one registry over a snapshot; every real B01/B02 event retrieves a runbook entry | tools commit |
+| [P-20](#p-20--agent-loop-and-grounding-validator) | 2026-09-29 | Agent loop + validator | One loop, two provider adapters, structured answer, V1–V5 in code; tested offline with a scripted model | agent commit |
 
 ---
 
@@ -582,6 +583,28 @@ Smoke test on B02: the 1.5 °C/h hard drift reads as a relative slope of 1.48 °
 
 ---
 
+## P-20 · Agent loop and grounding validator
+
+**Goal.** The LLM layer's loop and the check that does not depend on the model (ADR-0003, ADR-0005, ADR-0007), built and tested before any model is available.
+
+**Done.** `src/shiftassist/agent/`:
+- `answer.py`: the structured answer (`status`: answered / insufficient_data / not_in_runbook / out_of_scope; `answer`; cited `claims` with `values`; `runbook_entry`; `recommended_checks`) and the `submit_answer` tool generated from it.
+- `validator.py`: V1 uncited → flag; V2 unresolvable citation → claim dropped and counted as a hallucinated citation; V3 cited event outside the question window → flag; V4 a stated value not found in what the claim cites (5 % or 0.05) → flag; V5 cited runbook entry not verified → flag, shown. `render` gives the operator's view with per-claim marks.
+- `providers.py`: `AnthropicProvider`, `OpenAICompatProvider` (Ollama, vLLM, any Chat Completions endpoint, over httpx), and `ScriptedProvider` (a fake model for tests). Messages are provider-neutral.
+- `loop.py`: model ↔ tools until `submit_answer`; schema errors are returned to the model (and counted); a model that stops without submitting is nudged once; step limit. `use_runbook=False` removes the runbook tools, the runbook from the snapshot and the runbook step from the prompt (the ablation fixed in D-18e).
+- 10 tests with the scripted model: a full loop to a validated answer, an invented event ID dropped, wrong values flagged (including a telemetry window the validator recomputes), out-of-window and uncited claims flagged, schema error then retry, no answer, step limit, the ablation, and both providers' message formats (Anthropic parsed from real SDK types).
+
+**Decisions**
+- **D-20a Telemetry claims cite a window, and the validator recomputes it.** `telemetry:<subsystem>/<entity>/<channel>@<start>/<end>`: a monitoring number is checked like an event number, by re-running `get_telemetry_features`, not by trusting the transcript.
+- **D-20b The system prompt contains no camera knowledge.** How to investigate and how to cite, nothing about faults or procedures. Domain knowledge comes only through tools and the runbook, so the with/without-runbook comparison measures the runbook.
+- **D-20c `not_in_runbook` is a status of its own**, so "explained, but no procedure exists: escalate" is distinguishable from "cannot tell" in scoring (D-18d).
+- **D-20d No model has been run yet.** There is no API key in this environment and no local model server. The code is tested offline; live runs wait for the author to choose a provider (cost and data policy are the author's call).
+
+**Failures / dead ends (mine)**
+- **X-20a** The local environment had been synced without the `llm` extra, so `anthropic`/`httpx` were missing locally while CI (`--all-extras`) had them. `httpx`, now imported directly, is declared in the extra.
+
+---
+
 ## Failure register
 
 Every failure in one table, with how it was found and where it was resolved. "Found by" matters: a failure found by a test or a measurement is worth more than one found by reading.
@@ -614,6 +637,7 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-19a | P-18 | P-19 | Smoke test | Unquoted YAML sources parsed as dicts | Garbled citations | Quoted; test | Resolved |
 | X-19b | P-18 | P-19 | Retrieval on real events | Module gap retrieved "all silent" entries | Noisy retrieval | `entity: null` + `applies_if`; test | Resolved |
 | X-19c | P-18 | P-19 | Retrieval on real events | Pointing stop-hook error matched no entry | Event without guidance | Added to RB-006 | Resolved |
+| X-20a | P-06 | P-20 | mypy import error | Local env without the `llm` extra; `httpx` undeclared | Local/CI mismatch | Declared; synced with extras | Resolved |
 | X-15b | P-14 | P-15 | Reading per-event table | Scorer can credit one event to two overlapping labels | Recall overstated by 1 | Min-cost one-to-one matching (P-16) | Resolved |
 | X-16a | P-16 | P-16 | Diff vs hand reading | Max matching broke ties by file order; gap credited to wrong fault | Right count, wrong attribution | Min-cost matching + test | Resolved |
 | X-15c | P-14 | P-15 | Held-out clean run | Threshold from short baseline too tight | 1.3 false alarms/h | Longer baseline / tail threshold | Open |
@@ -655,6 +679,10 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | D-19a | Tools read a capture snapshot; SQLite stays for live collection | P-19 | [03 §4](03-architecture.md#4-tool-contract) |
 | D-19b | Three extra tools for the runbook's checks | P-19 | [03 §4](03-architecture.md#4-tool-contract) |
 | D-19c | Deterministic runbook retrieval by event; unchecked conditions shown as `applies_if` | P-19 | this file |
+| D-20a | Telemetry claims cite a window; the validator recomputes it | P-20 | this file |
+| D-20b | No camera knowledge in the system prompt | P-20 | this file |
+| D-20c | `not_in_runbook` is its own answer status | P-20 | this file |
+| D-20d | No model run until the author picks a provider | P-20 | this file |
 
 ---
 
