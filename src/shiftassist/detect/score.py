@@ -90,6 +90,11 @@ class Score:
     def false_alarms_per_hour(self) -> float:
         return len(self.false_alarms) / max(self.hours, 1e-9)
 
+    @property
+    def false_alarms_alarm(self) -> list[Event]:
+        """False alarms at alarm severity (what would page an operator)."""
+        return [e for e in self.false_alarms if e.severity == "alarm"]
+
 
 UNMATCHED, PARTIAL = 1e9, 1e6  # cost scale: one miss > any partial > any delay (seconds)
 
@@ -192,6 +197,7 @@ def render(s: Score) -> str:
         f"| {s.precision_lenient:.0%} |",
         f"| false alarms (outside every fault window) | {len(s.false_alarms)} |",
         f"| false alarms per hour | {s.false_alarms_per_hour:.2f} |",
+        f"| of which at alarm severity | {len(s.false_alarms_alarm)} |",
         "",
     ]
     by_kind: dict[str, list[ExpectedResult]] = {}

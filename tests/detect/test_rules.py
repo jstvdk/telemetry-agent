@@ -171,3 +171,23 @@ def test_capture_without_receive_times_gives_no_stall_verdict(tmp_path: Path, pr
         "".join(json.dumps({k: v for k, v in r.items() if k != "gathered_at"}) + "\n" for r in rows)
     )
     assert not [e for e in detect(cap, profile) if e.rule_id == "R-STALL-01"]
+
+
+def test_traceback_seen_in_the_baseline_is_info_not_alarm(tmp_path: Path) -> None:
+    """P-23: a start-up race that also happens on clean runs is reported, but does not page."""
+    u = "sstcam-eventbuilder.service"
+    tb = [
+        {**_unit(5, u, line), "SYSLOG_IDENTIFIER": "sstcam", "_PID": "77", "PRIORITY": "6"}
+        for line in ("Traceback (most recent call last):", '  File "x.py", line 1, in <module>',
+                     "zmq.error.ZMQError: Address already in use")
+    ]  # fmt: skip
+    for r in tb:
+        r.pop("USER_UNIT")
+        r["_SYSTEMD_USER_UNIT"] = u
+    base = learn(make_capture(tmp_path / "base", seed=1, journal=tb))
+    fresh = learn(make_capture(tmp_path / "fresh", seed=1))
+    cap = make_capture(tmp_path / "cap", seed=2, journal=tb)
+    (seen,) = [e for e in detect(cap, base) if e.kind == "traceback"]
+    (new,) = [e for e in detect(cap, fresh) if e.kind == "traceback"]
+    assert (seen.severity, new.severity) == ("info", "alarm")
+    assert seen.evidence["seen_in_baseline"] and "clean runs" in seen.summary

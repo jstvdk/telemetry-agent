@@ -5,7 +5,8 @@ R-GAP-01    a monitoring source goes silent (per source; module gaps that start 
 R-STALL-01  the gatherer stops writing (all sources) and what it writes afterwards arrives late:
             monitoring was held back, not lost (a frozen gatherer, R20)
 R-RST-01    a unit is started again after it stopped/exited/failed (a crash loop is one event)
-R-TB-01     an uncaught traceback in the journal (same unit + exception coalesced)
+R-TB-01     an uncaught traceback in the journal (same unit + exception coalesced); info severity
+            if the same unit + exception occurs in the clean baselines
 R-BURST-01  WARNING+ entries from one process at a rate far above its baseline
 R-SIG-01    a WARNING+ template or traceback exception never seen in the baseline
 R-TRD-01    a value's slope over a sliding window exceeds the largest baseline slope x margin,
@@ -220,6 +221,9 @@ def tracebacks(cap: Capture, prof: Profile) -> Iterator[Event]:
             if (tb.ts - episodes[-1][-1].ts).total_seconds() > prof.params.restart_coalesce_s:
                 episodes.append([])
             episodes[-1].append(tb)
+        # a traceback also seen in the clean baselines is known behaviour (e.g. a start-up race):
+        # still reported, but not as an alarm (v1, P-23)
+        known = f"traceback|{unit}|{exc}" in prof.known_templates
         for ep in episodes:
             line = str(ep[0].fields.get("exception_line", ""))[:200]
             yield Event(
@@ -228,10 +232,16 @@ def tracebacks(cap: Capture, prof: Profile) -> Iterator[Event]:
                 camera=cap.path.name,
                 subsystem=_sub_of_unit(unit),
                 kind="traceback",
-                severity="alarm",
+                severity="info" if known else "alarm",
                 rule_id="R-TB-01",
-                summary=f"{unit}: {len(ep)} x {line}",
-                evidence={"count": len(ep), "refs": [x.ref for x in ep][:10], "exception": exc},
+                summary=f"{unit}: {len(ep)} x {line}"
+                + (" (also seen in clean runs)" if known else ""),
+                evidence={
+                    "count": len(ep),
+                    "refs": [x.ref for x in ep][:10],
+                    "exception": exc,
+                    "seen_in_baseline": known,
+                },
             )
 
 

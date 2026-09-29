@@ -105,6 +105,7 @@ def main(argv: list[str] | None = None) -> int:
                 "duplicates": len(s.duplicates),
                 "false_alarms": len(s.false_alarms),
                 "false_alarms_per_hour": s.false_alarms_per_hour,
+                "false_alarms_alarm_severity": len(s.false_alarms_alarm),
             },
             indent=2,
         )

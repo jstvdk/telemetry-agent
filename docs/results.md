@@ -2,6 +2,23 @@
 
 Measured numbers only. Every row names its data and the code version; failures are listed next to wins. How these numbers were produced: [PROVENANCE P-13 to P-15](PROVENANCE.md).
 
+## Detector v1 (tag `detector-v1`): dev numbers before the held-out run
+
+Changes from v0: frozen-gatherer rule R-STALL-01 (P-17); trend thresholds max(1.5 × largest baseline slope, 5 × robust σ, floor) from **three pooled clean runs, 4.3 h** (B00, B00b, B10); tracebacks also seen in clean runs reported at info severity (P-23); scorer v1 (P-16). Profile: `eval/profiles/v1.json`.
+
+**All rows below are dev data** (B02 and B00b were held out for v0 and have been looked at since). The held-out numbers for v1 come from B03 and B03c, recorded after the tag.
+
+| data | faults | expected events | recall | exact module | events | false alarms (alarm severity) |
+|---|---:|---:|---:|---:|---:|---:|
+| B01 | 8 | 18 | 18/18 | 17/18 | 23 | 0 |
+| B02 | 10 | 16 validated | 15/16 | 14/16 | 22 | 0 |
+| B11 (run window) | 8 | 11 | 11/11 | 11/11 | 21 | 0 |
+| B12 (run window, overlapping pairs) | 6 | 10 | 10/10 | 10/10 | 18 | 0 |
+| B00b, clean 46 min | – | – | – | – | 0 | 0 (v0: 1) |
+| B10, clean 3 h (training) | – | – | – | – | 1 (info) | 0 |
+
+Out-of-sample check of the threshold rule: thresholds learned from B00 + B00b only produced **no trend, gap or stall event in the 3 unseen clean hours of B10** (largest window slope 4.53 σ; none above 5 σ). The one B02 miss is the gatherer-freeze label that was wrong (R20); labels are not edited after the fact.
+
 ## Detector v0 (deterministic rules, tag `detector-v0`)
 
 Profile learned from **B00** (31-min clean camera). Code frozen and tagged **before** the held-out data existed; the held-out scenarios were committed before any detector code (`ea6ac47` → `9694c53`).

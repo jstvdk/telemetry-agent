@@ -1,0 +1,8 @@
+id: B03c
+title: Clean held-out run for detector-v1 (4 h)
+description: >
+  No faults. Recorded on a fresh camera after detector-v1 was tagged (PROVENANCE D-18e, item 6);
+  measures false alarms per hour. Never used for tuning.
+settle: 0s
+cooldown: 4h
+faults: []

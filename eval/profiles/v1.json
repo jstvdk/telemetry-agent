@@ -1,0 +1,357 @@
+{
+  "learned_from": "B00-20260928T222149+B00b-20260928T233705+B10-20260929T115717",
+  "duration_s": 15596.489136,
+  "params": {
+    "gap_factor": 5.0,
+    "gap_max_factor": 2.0,
+    "gap_floor_s": 5.0,
+    "group_fraction": 0.5,
+    "group_window_s": 5.0,
+    "trend_window_s": 180.0,
+    "trend_step_s": 30.0,
+    "trend_margin": 1.5,
+    "trend_floor_per_h": 0.5,
+    "trend_z": 5.0,
+    "trend_consecutive": 2,
+    "burst_window_s": 60.0,
+    "burst_min_count": 10,
+    "burst_factor": 10.0,
+    "restart_coalesce_s": 120.0,
+    "stall_factor": 2.0,
+    "stall_floor_s": 5.0,
+    "late_factor": 2.0,
+    "late_floor_s": 1.0
+  },
+  "sources": {
+    "slowsignal/tm00": {
+      "interval_median_s": 1.0020451545715332,
+      "interval_max_s": 2.3007779121398926,
+      "messages": 15524
+    },
+    "slowsignal/tm01": {
+      "interval_median_s": 1.0021657943725586,
+      "interval_max_s": 2.2774410247802734,
+      "messages": 15524
+    },
+    "slowsignal/tm02": {
+      "interval_median_s": 1.0028808116912842,
+      "interval_max_s": 2.2752950191497803,
+      "messages": 15524
+    },
+    "slowsignal/tm03": {
+      "interval_median_s": 1.0029289722442627,
+      "interval_max_s": 2.2692949771881104,
+      "messages": 15524
+    },
+    "slowsignal/tm04": {
+      "interval_median_s": 1.0028610229492188,
+      "interval_max_s": 2.267009973526001,
+      "messages": 15524
+    },
+    "slowsignal/tm05": {
+      "interval_median_s": 1.0028369426727295,
+      "interval_max_s": 2.2710318565368652,
+      "messages": 15524
+    },
+    "slowsignal/tm06": {
+      "interval_median_s": 1.0028631687164307,
+      "interval_max_s": 2.330493927001953,
+      "messages": 15524
+    },
+    "slowsignal/tm07": {
+      "interval_median_s": 1.0028610229492188,
+      "interval_max_s": 2.3447279930114746,
+      "messages": 15524
+    },
+    "slowsignal/tm08": {
+      "interval_median_s": 1.0027430057525635,
+      "interval_max_s": 2.388672113418579,
+      "messages": 15524
+    },
+    "slowsignal/tm09": {
+      "interval_median_s": 1.0027408599853516,
+      "interval_max_s": 2.494442939758301,
+      "messages": 15524
+    },
+    "slowsignal/tm10": {
+      "interval_median_s": 1.0026650428771973,
+      "interval_max_s": 2.499980926513672,
+      "messages": 15524
+    },
+    "slowsignal/tm11": {
+      "interval_median_s": 1.0028321743011475,
+      "interval_max_s": 2.585637092590332,
+      "messages": 15524
+    },
+    "slowsignal/tm12": {
+      "interval_median_s": 1.002845048904419,
+      "interval_max_s": 2.5830960273742676,
+      "messages": 15524
+    },
+    "slowsignal/tm13": {
+      "interval_median_s": 1.002657175064087,
+      "interval_max_s": 2.590736150741577,
+      "messages": 15524
+    },
+    "slowsignal/tm14": {
+      "interval_median_s": 1.0028879642486572,
+      "interval_max_s": 2.6918320655822754,
+      "messages": 15524
+    },
+    "slowsignal/tm15": {
+      "interval_median_s": 1.0026519298553467,
+      "interval_max_s": 2.687831163406372,
+      "messages": 15524
+    },
+    "slowsignal/tm16": {
+      "interval_median_s": 1.002547025680542,
+      "interval_max_s": 2.6854300498962402,
+      "messages": 15524
+    },
+    "slowsignal/tm17": {
+      "interval_median_s": 1.002458095550537,
+      "interval_max_s": 2.6763222217559814,
+      "messages": 15524
+    },
+    "slowsignal/tm18": {
+      "interval_median_s": 1.0026860237121582,
+      "interval_max_s": 2.6725051403045654,
+      "messages": 15524
+    },
+    "slowsignal/tm19": {
+      "interval_median_s": 1.0028090476989746,
+      "interval_max_s": 2.6736178398132324,
+      "messages": 15524
+    },
+    "slowsignal/tm20": {
+      "interval_median_s": 1.0027902126312256,
+      "interval_max_s": 2.651944875717163,
+      "messages": 15524
+    },
+    "slowsignal/tm21": {
+      "interval_median_s": 1.002790927886963,
+      "interval_max_s": 2.6575610637664795,
+      "messages": 15524
+    },
+    "slowsignal/tm22": {
+      "interval_median_s": 1.0026519298553467,
+      "interval_max_s": 2.6575698852539062,
+      "messages": 15524
+    },
+    "slowsignal/tm23": {
+      "interval_median_s": 1.0027198791503906,
+      "interval_max_s": 2.69228196144104,
+      "messages": 15524
+    },
+    "slowsignal/tm24": {
+      "interval_median_s": 1.0027580261230469,
+      "interval_max_s": 2.6668920516967773,
+      "messages": 15524
+    },
+    "slowsignal/tm25": {
+      "interval_median_s": 1.0028069019317627,
+      "interval_max_s": 2.658295154571533,
+      "messages": 15524
+    },
+    "slowsignal/tm26": {
+      "interval_median_s": 1.0028514862060547,
+      "interval_max_s": 2.677243947982788,
+      "messages": 15523
+    },
+    "slowsignal/tm27": {
+      "interval_median_s": 1.0027419328689575,
+      "interval_max_s": 2.678788185119629,
+      "messages": 15523
+    },
+    "slowsignal/tm28": {
+      "interval_median_s": 1.0026845932006836,
+      "interval_max_s": 2.6825129985809326,
+      "messages": 15523
+    },
+    "slowsignal/tm29": {
+      "interval_median_s": 1.00261652469635,
+      "interval_max_s": 2.689847946166992,
+      "messages": 15523
+    },
+    "slowsignal/tm30": {
+      "interval_median_s": 1.0027179718017578,
+      "interval_max_s": 2.6902120113372803,
+      "messages": 15523
+    },
+    "slowsignal/tm31": {
+      "interval_median_s": 1.0026519298553467,
+      "interval_max_s": 2.650244951248169,
+      "messages": 15522
+    },
+    "eventbuilder/": {
+      "interval_median_s": 1.0030720233917236,
+      "interval_max_s": 1.4559521675109863,
+      "messages": 4631
+    },
+    "chiller/": {
+      "interval_median_s": 1.0069239139556885,
+      "interval_max_s": 1.9006478786468506,
+      "messages": 15446
+    },
+    "slowboard/": {
+      "interval_median_s": 1.0140008926391602,
+      "interval_max_s": 1.7461018562316895,
+      "messages": 15317
+    }
+  },
+  "trend": {
+    "slowsignal/temperature_i2c_power": {
+      "baseline_max_abs_per_h": 8.297098738369087,
+      "sigma_per_h": 0.0,
+      "threshold_per_h": 12.44564810755363,
+      "windows": 15781,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_i2c_aux": {
+      "baseline_max_abs_per_h": 0.7497638247147125,
+      "sigma_per_h": 0.1908876173290357,
+      "threshold_per_h": 1.1246457370720688,
+      "windows": 16096,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_i2c_primary": {
+      "baseline_max_abs_per_h": 0.7492745652143338,
+      "sigma_per_h": 0.18939977249359433,
+      "threshold_per_h": 1.1239118478215007,
+      "windows": 16096,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_prim_asics": {
+      "baseline_max_abs_per_h": 0.6280436403699855,
+      "sigma_per_h": 0.15624228107770347,
+      "threshold_per_h": 0.9420654605549783,
+      "windows": 16096,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_prim_shaper": {
+      "baseline_max_abs_per_h": 0.5997508368852846,
+      "sigma_per_h": 0.1522271353549745,
+      "threshold_per_h": 0.899626255327927,
+      "windows": 16096,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_aux_asics": {
+      "baseline_max_abs_per_h": 0.676156583393121,
+      "sigma_per_h": 0.15656262781083316,
+      "threshold_per_h": 1.0142348750896815,
+      "windows": 16096,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_aux_shaper": {
+      "baseline_max_abs_per_h": 0.6776006826953679,
+      "sigma_per_h": 0.15373606217794147,
+      "threshold_per_h": 1.0164010240430519,
+      "windows": 16096,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_sipm1": {
+      "baseline_max_abs_per_h": 0.7088056870591714,
+      "sigma_per_h": 0.1563605367158227,
+      "threshold_per_h": 1.063208530588757,
+      "windows": 16096,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_sipm2": {
+      "baseline_max_abs_per_h": 0.616659961345093,
+      "sigma_per_h": 0.15727297014226477,
+      "threshold_per_h": 0.9249899420176395,
+      "windows": 16096,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_sipm3": {
+      "baseline_max_abs_per_h": 0.6147913017253039,
+      "sigma_per_h": 0.15650508079318462,
+      "threshold_per_h": 0.9221869525879559,
+      "windows": 16096,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_sipm4": {
+      "baseline_max_abs_per_h": 0.5946816286858513,
+      "sigma_per_h": 0.1506642954496658,
+      "threshold_per_h": 0.8920224430287769,
+      "windows": 16096,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/temperature_preamp": {
+      "baseline_max_abs_per_h": 0.6146215496955014,
+      "sigma_per_h": 0.15357735201081113,
+      "threshold_per_h": 0.9219323245432521,
+      "windows": 16096,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/hv_input_current": {
+      "baseline_max_abs_per_h": 0.0043190533611232014,
+      "sigma_per_h": 0.0010848869908397089,
+      "threshold_per_h": 0.5,
+      "windows": 16096,
+      "entities": 32,
+      "residual": true
+    },
+    "slowsignal/hv_input_voltage": {
+      "baseline_max_abs_per_h": 0.2535337818398132,
+      "sigma_per_h": 0.05906068079793184,
+      "threshold_per_h": 0.5,
+      "windows": 16096,
+      "entities": 32,
+      "residual": true
+    },
+    "chiller/return_temperature": {
+      "baseline_max_abs_per_h": 5.235871214101283,
+      "sigma_per_h": 1.6158061618100645,
+      "threshold_per_h": 8.079030809050323,
+      "windows": 503,
+      "entities": 1,
+      "residual": false
+    },
+    "chiller/supply_temperature": {
+      "baseline_max_abs_per_h": 4.783626524546816,
+      "sigma_per_h": 1.6385562663824005,
+      "threshold_per_h": 8.192781331912002,
+      "windows": 503,
+      "entities": 1,
+      "residual": false
+    },
+    "chiller/heater_temperature": {
+      "baseline_max_abs_per_h": 4.945253564044284,
+      "sigma_per_h": 1.5766839586471222,
+      "threshold_per_h": 7.8834197932356105,
+      "windows": 503,
+      "entities": 1,
+      "residual": false
+    },
+    "chiller/heat_exchanger_temperature": {
+      "baseline_max_abs_per_h": 4.7019120604726705,
+      "sigma_per_h": 1.5197103472821525,
+      "threshold_per_h": 7.598551736410762,
+      "windows": 503,
+      "entities": 1,
+      "residual": false
+    }
+  },
+  "warn_per_min": {
+    "CONTROLLER-SERVER": 0.011541058915914728
+  },
+  "known_templates": [
+    "CONTROLLER-SERVER|WARNING|Simulation override is enabled via CLI flag, ignoring config server.controller_adapter=ControllerAdapter.SIMULATION",
+    "traceback|sstcam-eventbuilder.service|zmq.error.ZMQError"
+  ],
+  "write_gap_max_s": 1.2339999675750732,
+  "late_max_s": 1.8384530544281006
+}

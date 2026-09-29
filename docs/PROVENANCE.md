@@ -36,6 +36,7 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-20](#p-20--agent-loop-and-grounding-validator) | 2026-09-29 | Agent loop + validator | One loop, two provider adapters, structured answer, V1–V5 in code; tested offline with a scripted model | agent commit |
 | [P-21](#p-21--agent-evaluation-harness-and-a-rule-baseline) | 2026-09-29 | Agent eval harness + rule baseline | Questions from labels; a no-LLM baseline already names the right runbook entry for 80–88 % of isolated faults | eval commit |
 | [P-22](#p-22--dev-runs-before-the-held-out-set-b11-b12) | 2026-09-29 | Dev runs B11/B12 before held-out | 3 lab defects fixed; disk full observed (R21: one short write hides the rest of the day's monitoring); overlapping faults; B03 generator | lab commit |
+| [P-23](#p-23--detector-v1-thresholds-from-43-h-of-clean-data) | 2026-09-29 | Detector v1 | 3-h clean baseline: 5σ holds out of sample (max 4.53σ); 0 alarm-level false alarms on all dev data; boot-time race found | `detector-v1` |
 
 ---
 
@@ -687,6 +688,39 @@ The baseline's misses are the cases that need reasoning: a stopped gatherer (eve
 
 ---
 
+## P-23 · Detector v1: thresholds from 4.3 h of clean data
+
+**Goal.** Fix X-15c (a threshold learned from 31 min is exceeded by a longer run) and freeze the detector before the held-out runs.
+
+**B10: 3 h clean baseline** (one full period of the slow-signal ambient wave), `cam-01`, previous image. 0 restarts in 11 units; the only WARNING is the known controller notice; 370289 monitoring messages, no damaged records. One traceback, see R22.
+
+**Threshold rule (fixed before B10 finished, P-16/P-19 commits).** Trend threshold = max(1.5 × largest baseline window slope, z × robust σ of the window slopes, floor), z = 5 from arithmetic (≈ 8k independent windows per hour; ≤ 0.1 false alarms/h needs z ≈ 4.4 for Gaussian tails, rounded up for the heavier tails seen in 31 min). Clean runs are pooled, each analysed on its own. With z = 0 the code reproduces the v0 profile exactly.
+
+**Out-of-sample check.** Thresholds from B00 + B00b only, applied to B10's 3 unseen hours:
+
+| | slow-signal (13 families, 11488 windows each) | chiller (4 channels, 359 windows each) |
+|---|---|---|
+| robust σ, B10 vs. B00+B00b | within 3 % | within 20 % |
+| largest window slope | 4.53 σ | 3.21 σ |
+| windows above 5 σ | 0 | 0 |
+| windows above the learned threshold | 0 | 0 |
+| trend, gap or stall events (whole detector) | 0 | 0 |
+
+**v1 profile:** B00 + B00b + B10, 4.33 h (`eval/profiles/v1.json`). Chiller thresholds 7.6–8.2 °C/h (v0: 3.9–6.1); slow-signal unchanged within 0.1 °C/h; longest normal write gap 1.23 s; worst normal lateness 1.84 s.
+
+| # | Finding | Consequence |
+|---|---|---|
+| R22 | **Intermittent start-up race in the event builder:** `zmq.error.ZMQError: Address already in use (addr='tcp://*:50154')` 5 s after boot, in 1 of 4 clean boots (B10; not in B00, B00b, B01). The unit did not restart and monitoring was normal for 3 h | A real software error that is harmless under these conditions and would alarm at every boot where it happens. v1 keeps reporting it, at info severity once it is in the clean baselines; RB-010 documents it with the conditions under which it is benign (once, at start-up, no restart) |
+
+**Decisions**
+- **D-23a A traceback also seen in the clean baselines is reported at info severity**, with "also seen in clean runs"; unseen tracebacks stay alarms. Tested both ways.
+- **D-23b The scorer also reports false alarms at alarm severity** (what would page an operator), next to all false alarms.
+- **D-23c B00b and B02 are dev data for v1.** v1's held-out numbers come only from B03 (faults) and B03c (4 h clean, fresh camera), both recorded after the tag.
+
+**Dev results** ([results](results.md)): B01 18/18, B02 15/16, B11 11/11, B12 10/10 (the last two on their run windows); 0 false alarms at alarm severity on all of them and on B00b (v0: 1.3/h) and B10 (one info event, R22).
+
+---
+
 ## Failure register
 
 Every failure in one table, with how it was found and where it was resolved. "Found by" matters: a failure found by a test or a measurement is worth more than one found by reading.
@@ -732,7 +766,7 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-22h | P-22 | P-22 | 20 "false alarms" | Two runs in one capture | Wrong false-alarm count | `--run-window`; fresh camera for held-out | Resolved |
 | X-15b | P-14 | P-15 | Reading per-event table | Scorer can credit one event to two overlapping labels | Recall overstated by 1 | Min-cost one-to-one matching (P-16) | Resolved |
 | X-16a | P-16 | P-16 | Diff vs hand reading | Max matching broke ties by file order; gap credited to wrong fault | Right count, wrong attribution | Min-cost matching + test | Resolved |
-| X-15c | P-14 | P-15 | Held-out clean run | Threshold from short baseline too tight | 1.3 false alarms/h | Longer baseline / tail threshold | Open |
+| X-15c | P-14 | P-15 | Held-out clean run | Threshold from short baseline too tight | 1.3 false alarms/h | 5σ term + 4.3 h pooled baseline (P-23); held-out check B03c | Resolved on dev |
 
 ## Decision register
 
@@ -780,6 +814,9 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | D-22a | Every fault the held-out set can draw runs on dev data first | P-22 | this file |
 | D-22b | Our collector resynchronises past damaged records and reports what it skipped; the camera's reader is not patched | P-22 | this file |
 | D-22c | Lab infrastructure is named `lab-*`, never like camera software | P-22 | [lab README](../lab/camera-in-a-box/README.md) |
+| D-23a | Known (baseline) tracebacks at info severity | P-23 | this file |
+| D-23b | Scorer reports alarm-severity false alarms separately | P-23 | [results](results.md) |
+| D-23c | v1 held-out numbers only from B03/B03c | P-23 | [results](results.md) |
 
 ---
 
