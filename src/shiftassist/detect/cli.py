@@ -1,4 +1,4 @@
-"""shiftassist-detect profile BASELINE -o PROFILE | run CAPTURE -p PROFILE | score CAPTURE"""
+"""shiftassist-detect profile BASELINE... -o PROFILE | run CAPTURE -p PROFILE | score CAPTURE"""
 
 import argparse
 import json
@@ -14,8 +14,8 @@ from shiftassist.detect.score import render, score
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="shiftassist-detect", description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
-    a_prof = sub.add_parser("profile", help="learn normal behaviour from a clean capture")
-    a_prof.add_argument("capture")
+    a_prof = sub.add_parser("profile", help="learn normal behaviour from clean captures")
+    a_prof.add_argument("capture", nargs="+")
     a_prof.add_argument("-o", "--out", required=True)
     a_run = sub.add_parser("run", help="detect events in a capture (labels are not read)")
     a_run.add_argument("capture")
@@ -30,7 +30,7 @@ def main(argv: list[str] | None = None) -> int:
     a = p.parse_args(argv)
 
     if a.cmd == "profile":
-        prof = learn(a.capture)
+        prof = learn(list(a.capture))
         prof.save(a.out)
         print(
             f"profile from {prof.learned_from}: {len(prof.sources)} sources, "
