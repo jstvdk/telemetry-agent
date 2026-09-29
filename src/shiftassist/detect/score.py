@@ -6,11 +6,18 @@ Localisation: if the label names an entity (a module), an event on that entity i
 match; an event without entity (e.g. a log burst: the log line does not say which module, R18)
 is a *partial* match; an event on another entity does not match.
 
+One event, one expected event: credit is assigned by a minimum-cost bipartite matching between
+expected events and events, so an event can explain at most one expected event (two
+overlapping faults need two events). The cost is lexicographic: first as many expected events
+matched as possible, then as many exact localisations, then the smallest total delay from
+fault start to event, so an event is credited to the fault it most plausibly belongs to.
+
 Events are then classified:
-    true positive   matches at least one expected event
+    true positive   assigned to an expected event
+    duplicate       matches an expected event that another event was assigned to
     explained       inside a fault window (start-60 s … end+180 s) but not an expected event,
                     e.g. a side effect (a new message template, a counter reset)
-    false alarm     neither
+    false alarm     none of these
 """
 
 from dataclasses import dataclass, field
@@ -55,6 +62,7 @@ class Score:
     hours: float
     expected: list[ExpectedResult]
     tp: list[Event]
+    duplicates: list[Event]
     explained: list[Event]
     false_alarms: list[Event]
 
@@ -68,7 +76,7 @@ class Score:
 
     @property
     def n_events(self) -> int:
-        return len(self.tp) + len(self.explained) + len(self.false_alarms)
+        return len(self.tp) + len(self.duplicates) + len(self.explained) + len(self.false_alarms)
 
     @property
     def precision_strict(self) -> float:
@@ -76,39 +84,97 @@ class Score:
 
     @property
     def precision_lenient(self) -> float:
-        return (len(self.tp) + len(self.explained)) / max(self.n_events, 1)
+        return (len(self.tp) + len(self.duplicates) + len(self.explained)) / max(self.n_events, 1)
 
     @property
     def false_alarms_per_hour(self) -> float:
         return len(self.false_alarms) / max(self.hours, 1e-9)
 
 
+UNMATCHED, PARTIAL = 1e9, 1e6  # cost scale: one miss > any partial > any delay (seconds)
+
+
+def _assign(cost: list[list[float | None]]) -> dict[int, int]:
+    """Minimum-cost assignment of rows (expected events) to columns (events), Hungarian method.
+    cost[i][j] is None where event j cannot explain expected event i. Returns row -> column for
+    matched rows only."""
+    n, m = len(cost), len(cost[0]) if cost else 0
+    cols = m + n  # one private "unmatched" column per row
+    inf = float("inf")
+
+    def c(i: int, j: int) -> float:
+        if j < m:
+            v = cost[i][j]
+            return inf if v is None else v
+        return UNMATCHED if j - m == i else inf
+
+    u, v = [0.0] * (n + 1), [0.0] * (cols + 1)
+    p, way = [0] * (cols + 1), [0] * (cols + 1)  # 1-based, column 0 is the virtual start
+    for i in range(1, n + 1):
+        p[0], j0 = i, 0
+        minv, used = [inf] * (cols + 1), [False] * (cols + 1)
+        while True:
+            used[j0], i0, delta, j1 = True, p[j0], inf, 0
+            for j in range(1, cols + 1):
+                if not used[j]:
+                    cur = c(i0 - 1, j - 1) - u[i0] - v[j]
+                    if cur < minv[j]:
+                        minv[j], way[j] = cur, j0
+                    if minv[j] < delta:
+                        delta, j1 = minv[j], j
+            for j in range(cols + 1):
+                if used[j]:
+                    u[p[j]] += delta
+                    v[j] -= delta
+                else:
+                    minv[j] -= delta
+            j0 = j1
+            if p[j0] == 0:
+                break
+        while j0:
+            j1 = way[j0]
+            p[j0] = p[j1]
+            j0 = j1
+    return {p[j] - 1: j - 1 for j in range(1, m + 1) if p[j]}
+
+
 def score(capture: str, events: list[Event], labels: list[Label], hours: float) -> Score:
+    pairs = [(lb, exp) for lb in labels for exp in lb.expected_events]
+    how = [[match(e, lb, exp) for e in events] for lb, exp in pairs]
+    cost: list[list[float | None]] = [
+        [
+            None
+            if m is None
+            else (m != "exact") * PARTIAL + abs((e.ts - parse_iso(lb.start)).total_seconds())
+            for e, m in zip(events, row, strict=True)
+        ]
+        for (lb, _), row in zip(pairs, how, strict=True)
+    ]
+    assigned = _assign(cost)
     results: list[ExpectedResult] = []
-    matched_ids: set[str] = set()
-    for lb in labels:
-        start = parse_iso(lb.start)
-        for exp in lb.expected_events:
-            hits = [(e, m) for e in events if (m := match(e, lb, exp))]
-            how = "exact" if any(m == "exact" for _, m in hits) else ("partial" if hits else None)
-            r = ExpectedResult(lb, exp, how, [e.event_id for e, _ in hits])
-            if hits:
-                first = min(e.ts for e, _ in hits)
-                r.delay_s = (first - start).total_seconds()
-                matched_ids |= {e.event_id for e, _ in hits}
-            results.append(r)
+    for i, (lb, exp) in enumerate(pairs):
+        r = ExpectedResult(lb, exp, None)
+        if i in assigned:
+            j = assigned[i]
+            r.how, r.events = how[i][j], [events[j].event_id]
+            r.delay_s = (events[j].ts - parse_iso(lb.start)).total_seconds()
+        results.append(r)
+    used = set(assigned.values())
+    candidate = {j for row in how for j, m in enumerate(row) if m}
     windows = [
         (parse_iso(lb.start) - EXPLAIN_BEFORE, parse_iso(lb.end) + EXPLAIN_AFTER) for lb in labels
     ]
-    tp, explained, fa = [], [], []
-    for e in events:
-        if e.event_id in matched_ids:
+    tp, dup, explained, fa = [], [], [], []
+    for j, e in enumerate(events):
+        if j in used:
             tp.append(e)
+        elif j in candidate:
+            dup.append(e)
         elif any(a <= e.ts <= b for a, b in windows):
             explained.append(e)
         else:
             fa.append(e)
-    return Score(capture, hours, results, tp, explained, fa)
+    return Score(capture, hours, results, tp, dup, explained, fa)
 
 
 def render(s: Score) -> str:
@@ -122,7 +188,8 @@ def render(s: Score) -> str:
         f"| recall (exact entity) | {s.recall_exact:.0%} |",
         f"| detector events | {s.n_events} |",
         f"| precision, strict (matches an expected event) | {s.precision_strict:.0%} |",
-        f"| precision, lenient (+ side effects in a fault window) | {s.precision_lenient:.0%} |",
+        f"| precision, lenient (+ duplicates, side effects in a fault window) "
+        f"| {s.precision_lenient:.0%} |",
         f"| false alarms (outside every fault window) | {len(s.false_alarms)} |",
         f"| false alarms per hour | {s.false_alarms_per_hour:.2f} |",
         "",
@@ -157,7 +224,11 @@ def render(s: Score) -> str:
                 f"| {r.label.label_id} | {r.label.kind} | {r.expected.kind} | {src} | {res} "
                 f"| {d} | {', '.join(r.events[:4])} |"
             )
-    for title, evs in (("False alarms", s.false_alarms), ("Explained side effects", s.explained)):
+    for title, evs in (
+        ("False alarms", s.false_alarms),
+        ("Duplicates (a real fault, already credited to another event)", s.duplicates),
+        ("Explained side effects", s.explained),
+    ):
         out += ["", f"## {title} ({len(evs)})", ""]
         out += [
             f"- `{e.event_id}` {e.ts:%H:%M:%S} {e.kind} {e.subsystem}"

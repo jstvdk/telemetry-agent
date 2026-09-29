@@ -10,7 +10,7 @@ Profile learned from **B00** (31-min clean camera). Code frozen and tagged **bef
 |---|---|---:|---:|---:|---:|---:|---:|---:|
 | B00 | profile source | 0 | 0 | – | – | 0 | – | 0 (by construction) |
 | B01 | dev (inspected, tuned on) | 8 | 18 | 18/18 | 17/18 | 23 | 78% / 100% | 0 |
-| **B02** | **held-out** | 10 | 16 validated (19 labelled) | **15/16** (conservative) | **14/16** | 21 | 76% / 100% | **0** |
+| **B02** | **held-out** | 10 | 16 validated (19 labelled) | **15/16** | **14/16** | 21 | 71% / 100% | **0** |
 | **B00b** | **held-out, clean** | 0 | 0 | – | – | 1 | – | **1 in 46 min (1.3 /h)** |
 
 Median detection delay on B02: gaps 1 s, restarts 6 s, tracebacks 14 s, trends 79 s. The hardest case, a 1.5 °C/h drift on one SiPM sensor (~0.15 °C over 6 min, same order as the shared ambient variation), was detected **131 s** after it started.
@@ -18,7 +18,7 @@ Median detection delay on B02: gaps 1 s, restarts 6 s, tracebacks 14 s, trends 7
 **What the numbers do not show, stated plainly**
 
 - **3 of 19 B02 expected events were not ground truth.** The label said a frozen gatherer causes monitoring gaps; the data shows the gatherer buffers everything and writes it late with the original timestamps (61/61 messages per 1 Hz source during a 62 s freeze). The label validation step caught this before scoring; the 3 events are excluded, not re-labelled. Without validation: 15/19 (79 %).
-- **One B02 "match" was credited by the scorer but is not real:** the slow-signal gap matched to the gatherer freeze (L08) is the gap of the calibration fault (L09) that started 6 s after it. Counted as a miss above (15/16, not the 16/16 the scorer printed). Scorer fix pending: one event, one label.
+- **Scored with scorer v1 (one event, one expected event; P-16).** The first scorer credited one slow-signal gap to two overlapping faults and printed 16/16; the published number was corrected to 15/16 by hand. Scorer v1 now produces 15/16 itself and attributes the gap to the calibration fault (L09, 8 s after its start) rather than the gatherer freeze (L08, 75 s). Strict precision drops from 76 % to 71 % because a second trend event on the same drifting module is now counted as a duplicate, not a second true positive. B01 and B00b are unchanged.
 - **The false alarm on B00b** is a chiller trend at +3.87 °C/h against a threshold of 3.86 °C/h. Thresholds are "largest value in a 31-min baseline x 1.5"; a longer run eventually exceeds them. Needs a longer baseline or a tail-based threshold.
 - **Localisation:** a broken RTD is found (log burst) but cannot be attributed to its module; the camera's log line does not name it (R18).
 - **Small data:** 26 faults in total across dev and held-out. Enough to find design errors, not enough for tight confidence intervals.

@@ -29,6 +29,7 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-13](#p-13--first-labelled-fault-run-b01-and-label-validation) | 2026-09-28 | First labelled run + label validation | 18/18 label evidence found; negative control 0/11 | validation commit |
 | [P-14](#p-14--detector-v0-dev-set) | 2026-09-28 | Detector v0 on dev set | 18/18 after two design fixes; frozen as `detector-v0` | `detector-v0` |
 | [P-15](#p-15--held-out-evaluation) | 2026-09-29 | Held-out evaluation | 15/16 recall, 0 false alarms (B02); 1.3 false alarms/h (B00b) | results commit |
+| [P-16](#p-16--scorer-v1-one-event-one-expected-event) | 2026-09-29 | Scorer v1 | One event credits one expected event; B02 15/16 now computed, not hand-corrected | scorer commit |
 
 ---
 
@@ -455,6 +456,34 @@ The hard drift (1.5 °C/h, ~0.15 °C in 6 min) was detected after 131 s.
 
 ---
 
+## P-16 · Scorer v1: one event, one expected event
+
+**Goal.** Fix X-15b. The scorer credited every matching event to every expected event it fitted, so one event could explain two overlapping faults, and the published B02 number had to be corrected by hand.
+
+**Plan for the next steps (agreed 2026-09-29).** Scorer fix (this entry) → longer clean baseline → detector v1 (late arrival for a frozen gatherer, thresholds from more data) → runbook (drafted, then corrected by the author, then frozen) → new held-out set B03, recorded after both the detector and the runbook are frozen → LLM layer and its evaluation. The runbook question raised at this point, "is a runbook built from injected faults overfitting?", is answered in P-19.
+
+**Done.** `src/shiftassist/detect/score.py`: credit is a minimum-cost bipartite matching between expected events and detector events (Hungarian method). Cost, in order: an unmatched expected event, then a partial (module-less) match, then the delay from fault start to event. Events that match an already-credited expected event are reported as *duplicates*: they count for lenient precision, not strict. 5 scorer tests, including a brute-force optimality check on 300 random cases.
+
+**Result.** detector-v0 events unchanged; only the credit rule changed.
+
+| data | scorer v0 | scorer v1 |
+|---|---|---|
+| B01 | 18/18, exact 17/18, strict precision 78 % | same |
+| B02 (validated) | printed 16/16; published 15/16 after a hand correction | **15/16**, exact 14/16, strict precision 71 % (was 76 %) |
+| B00b | 1 false alarm | same |
+
+The B02 strict precision drops because a second trend event on the same drifting module is now a duplicate. The miss is now the gatherer-freeze gap (L08), and the gap is credited to the calibration fault (L09), as in the hand reading.
+
+**Decisions**
+- **D-16a Credit assignment is one-to-one and prefers the most plausible fault**, not the first label in the file. This matters beyond the metric: the LLM layer will explain events by the fault they belong to.
+- **D-16b Re-scoring held-out data with a new scorer is allowed; re-running a new detector on it is not.** The scorer does not see the data before scoring and changes no detector output. The old reports are kept next to the new ones (`SCORE_scorer-v0.md`).
+
+**Failures / dead ends (mine)**
+- **X-16a The first fix was a maximum matching (Kuhn) with tie-breaks by processing order.** It produced the right count (15/16) but credited the gap to the wrong fault (L08, 75 s after its start, instead of L09, 8 s after). Found by diffing the per-label table against the hand reading. Replaced by the minimum-cost matching; a test fixes the B02 case.
+- **X-16b A scorer test was set up wrongly:** its "second" event also fell inside the first label's window (end + tolerance), so either assignment was valid. The code was right. A mutation run (greedy assignment swapped in) confirmed the rebuilt test fails when matching is not maximal.
+
+---
+
 ## Failure register
 
 Every failure in one table, with how it was found and where it was resolved. "Found by" matters: a failure found by a test or a measurement is worth more than one found by reading.
@@ -482,7 +511,8 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-14a | P-14 | P-14 | Event vs label times | Trend events stamped at window start | Trend recall 0/4 | Detection-time stamps | Resolved |
 | X-14b | P-14 | P-14 | Event counts | Median shift when a module dropped out | 193 false trends | Centred common mode + regression test | Resolved |
 | X-15a | P-12 | P-15 | Label validation | Gatherer hang labelled as gaps; data is buffered, not lost | 3 invalid expected events | Excluded; catalog to fix | Open |
-| X-15b | P-14 | P-15 | Reading per-event table | Scorer can credit one event to two overlapping labels | Recall overstated by 1 | Counted as miss; fix scorer | Open |
+| X-15b | P-14 | P-15 | Reading per-event table | Scorer can credit one event to two overlapping labels | Recall overstated by 1 | Min-cost one-to-one matching (P-16) | Resolved |
+| X-16a | P-16 | P-16 | Diff vs hand reading | Max matching broke ties by file order; gap credited to wrong fault | Right count, wrong attribution | Min-cost matching + test | Resolved |
 | X-15c | P-14 | P-15 | Held-out clean run | Threshold from short baseline too tight | 1.3 false alarms/h | Longer baseline / tail threshold | Open |
 
 ## Decision register
@@ -510,6 +540,8 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | D-14a | Held-out committed before code; code tagged before held-out data | P-14 | [results](results.md) |
 | D-14d | Labels are not edited after seeing detector output | P-14 | this file |
 | D-15a | Score against validated expectations; publish unvalidated too | P-15 | [results](results.md) |
+| D-16a | One event credits one expected event, most plausible fault first | P-16 | this file |
+| D-16b | New scorer may re-score held-out; new detector may not | P-16 | this file |
 
 ---
 

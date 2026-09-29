@@ -90,6 +90,7 @@ def main(argv: list[str] | None = None) -> int:
                 "events": s.n_events,
                 "precision_strict": s.precision_strict,
                 "precision_lenient": s.precision_lenient,
+                "duplicates": len(s.duplicates),
                 "false_alarms": len(s.false_alarms),
                 "false_alarms_per_hour": s.false_alarms_per_hour,
             },
