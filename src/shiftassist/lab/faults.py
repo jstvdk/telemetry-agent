@@ -157,10 +157,18 @@ class ProcessHang(FaultBase):
         st.t_revert = box.now()
 
     def expected(self, box: Box, st: Injected) -> list[ExpectedEvent]:
-        subs = PUBLISHERS if self.unit == "gatherer" else (self.unit,)
-        return [self._ev(box, "gap", s, st.t_inject, 30) for s in subs]
+        # A frozen gatherer loses nothing: publishers keep sending, messages queue, and are
+        # written late with their original timestamps (R20). What stops is the gatherer's own
+        # write stream, so the expected event is a gap of the gatherer, not of the sources.
+        return [self._ev(box, "gap", self.unit, st.t_inject, 30)]
 
     def root_cause(self) -> str:
+        if self.unit == "gatherer":
+            return (
+                f"The gatherer process was frozen (SIGSTOP) for {self.hold}: it did not exit, so "
+                "systemd saw nothing wrong. Nothing was written while it was frozen; the queued "
+                "monitoring was written when it resumed, late but complete."
+            )
         return (
             f"The {self.unit} server process was frozen (SIGSTOP) for {self.hold}: it did not "
             "exit, so systemd saw nothing wrong; its output simply stopped."

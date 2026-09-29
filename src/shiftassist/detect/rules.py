@@ -2,6 +2,8 @@
 
 R-GAP-01    a monitoring source goes silent (per source; module gaps that start together on
             most modules become one subsystem-level event)
+R-STALL-01  the gatherer stops writing (all sources) and what it writes afterwards arrives late:
+            monitoring was held back, not lost (a frozen gatherer, R20)
 R-RST-01    a unit is started again after it stopped/exited/failed (a crash loop is one event)
 R-TB-01     an uncaught traceback in the journal (same unit + exception coalesced)
 R-BURST-01  WARNING+ entries from one process at a rate far above its baseline
@@ -106,6 +108,50 @@ def _gap_event(
         summary=f"No monitoring from {who} for {how_long} (normal gap < {thr:.1f} s)",
         evidence={"silence_s": dur, "threshold_s": thr, "entities": n},
     )
+
+
+# --- R-STALL-01 -------------------------------------------------------------------------------
+
+BACKLOG_WINDOW_S = 30.0  # a resumed gatherer drains its queue within milliseconds
+
+
+def stalls(cap: Capture, prof: Profile) -> Iterator[Event]:
+    g = cap.gathered
+    if len(g) < 2 or prof.write_gap_max_s is None or prof.late_max_s is None:
+        return  # capture or baseline without receive times: cannot tell
+    p = prof.params
+    thr = max(p.stall_factor * prof.write_gap_max_s, p.stall_floor_s)
+    late_thr = max(p.late_factor * prof.late_max_s, p.late_floor_s)
+    w = np.array([x[0].timestamp() for x in g])
+    late = w - np.array([x[1].timestamp() for x in g])
+    for i in np.nonzero(np.diff(w) > thr)[0]:
+        silence = float(w[i + 1] - w[i])
+        after = slice(i + 1, int(np.searchsorted(w, w[i + 1] + BACKLOG_WINDOW_S)))
+        delayed = np.nonzero(late[after] > late_thr)[0] + i + 1
+        if not len(delayed):
+            continue  # nothing held back: sources went silent; R-GAP-01 reports them
+        per_source = Counter(g[k][2] for k in delayed)
+        worst = float(late[delayed].max())
+        yield Event(
+            ts=_dt(float(w[i])),
+            end=_dt(float(w[i + 1])),
+            camera=cap.path.name,
+            subsystem="gatherer",
+            kind="gap",
+            severity="alarm",
+            rule_id="R-STALL-01",
+            summary=f"The gatherer wrote nothing for {silence:.0f} s, then {len(delayed)} messages "
+            f"from {len(per_source)} sources arrived up to {worst:.0f} s late: "
+            f"monitoring was delayed, not lost (normal write gap < {thr:.1f} s)",
+            evidence={
+                "silence_s": silence,
+                "threshold_s": thr,
+                "late_threshold_s": late_thr,
+                "delayed_messages": len(delayed),
+                "delayed_per_source": dict(per_source),
+                "max_lateness_s": worst,
+            },
+        )
 
 
 # --- R-RST-01 ---------------------------------------------------------------------------------
@@ -379,6 +425,7 @@ def detect(capture: str, prof: Profile) -> list[Event]:
     times, series = load_series(cap)
     events = [
         *gaps(cap, prof, times),
+        *stalls(cap, prof),
         *restarts(cap, prof),
         *tracebacks(cap, prof),
         *new_signatures(cap, prof),

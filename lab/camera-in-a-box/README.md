@@ -76,4 +76,6 @@ uv run shiftassist-collect verify-labels captures/B00-… --labels-from captures
 
 A run writes `captures/<scenario>-<time>/`: `labels.jsonl` (ground truth, container clock), `harness.jsonl` (every command with time and exit code), `run.json`, and the capture (`data/`, `journal.jsonl`, `monitoring.jsonl`).
 
+Each monitoring record carries the source's own `timestamp` and `gathered_at`, the time the gatherer received it. A frozen gatherer shows up only in the difference between them (R20). Captures made before 2026-09-29 were exported without `gathered_at`; `./reexport_gathered.sh captures/<name>` adds it from the capture's own `.bin` files. It checks that every decoded record is identical to the one it annotates.
+
 Fault types (`src/shiftassist/lab/faults.py`): `process_crash`, `process_hang`, `gatherer_down`, `calibration_missing`, `disk_full` (only on a small tmpfs `/data`), `slowsignal_drift`, `sensor_fault`, `module_dead`, `chiller_ramp`. Each is reverted in `finally`; if a revert fails the harness resets everything; if the camera does not recover, the run stops.

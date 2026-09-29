@@ -8,7 +8,8 @@ learn that before scoring any detector against it.
 Checks per expected event kind:
   restart     journal: the unit was started again (after stop/exit) near the expected time
   gap         monitoring: longest silence of the subsystem (or module) in the window vs. its
-              normal message interval
+              normal message interval. For subsystem 'gatherer': the gatherer's *write* stream
+              (all sources) went silent and the messages written after it arrived late (R20)
   traceback   journal: a reassembled traceback from the unit in the window
   log_burst   logs: WARNING+ entries from the subsystem's server in the window vs. before it
   trend       monitoring: least-squares slope of the channel in the window vs. before it
@@ -50,6 +51,7 @@ class Capture:
         self._journal: list[Entry] | None = None
         self._logs: list[Entry] | None = None
         self._mon: dict[tuple[str, str], list[tuple[datetime, dict[str, float]]]] | None = None
+        self._gathered: list[tuple[datetime, datetime, str]] = []
 
     @property
     def journal(self) -> list[Entry]:
@@ -83,11 +85,22 @@ class Capture:
                         for k, v in d.items()
                         if isinstance(v, int | float) and not isinstance(v, bool)
                     }
-                    mon[(d["subsystem"], ent)].append((parse_iso(d["timestamp"]), vals))
+                    ts = parse_iso(d["timestamp"])
+                    mon[(d["subsystem"], ent)].append((ts, vals))
+                    if "gathered_at" in d:
+                        self._gathered.append((parse_iso(d["gathered_at"]), ts, d["subsystem"]))
             for series in mon.values():
                 series.sort(key=lambda x: x[0])
+            self._gathered.sort(key=lambda x: x[0])
             self._mon = dict(mon)
         return self._mon
+
+    @property
+    def gathered(self) -> list[tuple[datetime, datetime, str]]:
+        """(gatherer receive time, source timestamp, subsystem) in write order; empty for
+        captures exported without receive times."""
+        _ = self.monitoring
+        return self._gathered
 
     @property
     def span(self) -> tuple[datetime, datetime]:
@@ -129,7 +142,30 @@ def check_restart(cap: Capture, label: Label, ev: ExpectedEvent) -> Check:
     )
 
 
+def check_gatherer_stall(cap: Capture, label: Label, ev: ExpectedEvent) -> Check:
+    """Nothing written for a while, then a backlog: the gatherer held the data back (R20)."""
+    a, b = _window(label, ev)
+    if not cap.gathered:
+        return Check(label.label_id, ev, None, "capture has no receive times (gathered_at)")
+    g = [x for x in cap.gathered if a - timedelta(seconds=10) <= x[0] <= b]
+    if len(g) < 2:
+        return Check(label.label_id, ev, False, "no writes around the window")
+    silence, i = max(((y[0] - x[0]).total_seconds(), k) for k, (x, y) in enumerate(pairwise(g)))
+    late = [(w - t).total_seconds() for w, t, _ in g[i + 1 :]]
+    delayed = sum(d > NOMINAL_INTERVAL_S for d in late)  # normal delay: milliseconds
+    found = silence > GAP_FACTOR * NOMINAL_INTERVAL_S and delayed > 0
+    return Check(
+        label.label_id,
+        ev,
+        found,
+        f"longest write silence {silence:.1f} s; {delayed} messages written after it arrived "
+        f"late (max {max(late, default=0):.1f} s)",
+    )
+
+
 def check_gap(cap: Capture, label: Label, ev: ExpectedEvent) -> Check:
+    if ev.subsystem == "gatherer":
+        return check_gatherer_stall(cap, label, ev)
     a, b = _window(label, ev)
     keys = [
         k

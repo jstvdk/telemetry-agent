@@ -34,6 +34,10 @@ class Params(BaseModel):
     burst_min_count: int = 10
     burst_factor: float = 10.0  # x baseline WARNING+ rate
     restart_coalesce_s: float = 120.0
+    stall_factor: float = 2.0  # gatherer write silence > this x longest baseline write gap ...
+    stall_floor_s: float = 5.0  # ... and > this
+    late_factor: float = 2.0  # a message is late if written > this x the baseline's worst ...
+    late_floor_s: float = 1.0  # ... and > this after its own timestamp
 
 
 class SourceProfile(BaseModel):
@@ -65,6 +69,8 @@ class Profile(BaseModel):
     trend: dict[str, TrendProfile]  # 'subsystem/channel'
     warn_per_min: dict[str, float]  # process -> WARNING+ entries per minute
     known_templates: list[str]  # 'process|level|template' and 'traceback|unit|exception'
+    write_gap_max_s: float | None = None  # longest gap between gatherer writes (all sources)
+    late_max_s: float | None = None  # longest receive-minus-source delay in the baseline
 
     def save(self, path: str | Path) -> None:
         Path(path).write_text(self.model_dump_json(indent=2))
@@ -128,6 +134,8 @@ def learn(capture: str | Path, params: Params | None = None) -> Profile:
         for e in cap.journal
         if e.kind == "traceback"
     }
+    w = np.array([g.timestamp() for g, _, _ in cap.gathered])
+    late = w - np.array([t.timestamp() for _, t, _ in cap.gathered])
     return Profile(
         learned_from=Path(capture).name,
         duration_s=duration,
@@ -136,4 +144,6 @@ def learn(capture: str | Path, params: Params | None = None) -> Profile:
         trend=trend,
         warn_per_min={k: v / (duration / 60) for k, v in warn.items()},
         known_templates=sorted(known),
+        write_gap_max_s=float(np.diff(w).max()) if len(w) > 1 else None,
+        late_max_s=float(late.max()) if len(w) > 1 else None,
     )

@@ -2,7 +2,11 @@
 
     python export_monitoring.py /data/SSTCAM/monitoring > monitoring.jsonl
 
-One line per GatheredMonitoringMessage: {"subsystem": <oneof name>, ...fields as protobuf JSON}.
+One line per GatheredMonitoringMessage:
+    {"subsystem": <oneof name>, "gathered_at": <gatherer receive time>, ...fields as protobuf JSON}
+`timestamp` inside the fields is the source's own time; `gathered_at` is when the gatherer took
+the message off the socket (it stamps datetime.now() in its handler). A frozen gatherer loses
+nothing but writes late, so the difference is what shows a hang (R20).
 Reads every observation day present in the directory.
 """
 
@@ -31,7 +35,8 @@ async def export(directory: str, prefix: str = "monitoring") -> int:
                 preserving_proto_field_name=True,
                 always_print_fields_with_no_presence=True,  # else zeros (e.g. slot 0) vanish
             )
-            sys.stdout.write(json.dumps({"subsystem": kind, **body}) + "\n")
+            gathered = msg.timestamp.ToDatetime().isoformat(timespec="milliseconds") + "Z"
+            sys.stdout.write(json.dumps({"subsystem": kind, "gathered_at": gathered, **body}) + "\n")
             n += 1
     return n
 

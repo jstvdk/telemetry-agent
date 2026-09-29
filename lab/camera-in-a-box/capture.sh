@@ -17,6 +17,10 @@ docker exec "$C" tar -C /data --warning=no-file-changed -cf - SSTCAM | tar -C "$
   || { rc=$?; [ "$rc" -le 1 ] || exit "$rc"; }
 rm -rf "$OUT/data" && mv "$OUT/SSTCAM" "$OUT/data"
 docker exec "$C" journalctl -o json --no-pager > "$OUT/journal.jsonl"
+# The exporter is installed from this checkout at capture time, so the decoding that produced a
+# capture is the one in git, whatever image the camera runs.
+docker cp "$(dirname "$0")/lab/export_monitoring.py" "$C:/opt/sstcam/lab/export_monitoring.py"
+docker exec "$C" chmod 644 /opt/sstcam/lab/export_monitoring.py
 docker exec "$C" ucam python /opt/sstcam/lab/export_monitoring.py /data/SSTCAM/monitoring \
   > "$OUT/monitoring.jsonl"
 docker exec "$C" ucam systemctl --user show 'sstcam*' -p Id -p ActiveState -p SubState -p NRestarts \

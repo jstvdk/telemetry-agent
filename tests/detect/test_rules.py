@@ -30,22 +30,32 @@ def make_capture(
     dead: tuple[int, float, float] | None = None,  # module, start s, end s
     camera_wide: float = 0.0,  # °C/h added to every module (shared warming)
     journal: list[dict[str, object]] | None = None,
+    frozen: tuple[float, float] | None = None,  # gatherer frozen: queued, written at resume
+    stopped: tuple[float, float] | None = None,  # gatherer stopped: messages lost
 ) -> str:
     rng = random.Random(seed)
     offsets = [rng.gauss(0, 0.6) for _ in range(N_MOD)]
     (root / "data" / "logs").mkdir(parents=True)
+    records: list[dict[str, object]] = []
+
+    def emit(t: float, rec: dict[str, object]) -> None:
+        if stopped and stopped[0] <= t - T0 < stopped[1]:
+            return
+        w = t + 0.005
+        if frozen and frozen[0] <= t - T0 < frozen[1]:
+            w = T0 + frozen[1] + 0.001 * len(records) % 0.5
+        records.append({"subsystem": rec.pop("subsystem"), "gathered_at": iso(w), **rec})
+
     with (root / "monitoring.jsonl").open("w") as fh:
         for s in range(duration):
             t = T0 + s
-            fh.write(
-                json.dumps(
-                    {
-                        "subsystem": "chiller",
-                        "timestamp": iso(t),
-                        "supply_temperature": 23 + rng.gauss(0, 0.3),
-                    }
-                )
-                + "\n"
+            emit(
+                t,
+                {
+                    "subsystem": "chiller",
+                    "timestamp": iso(t),
+                    "supply_temperature": 23 + rng.gauss(0, 0.3),
+                },
             )
             ambient = 0.4 * math.sin(2 * math.pi * s / 10800) + camera_wide * s / 3600
             for m in range(N_MOD):
@@ -54,17 +64,17 @@ def make_capture(
                 v = 24 + offsets[m] + ambient + rng.gauss(0, 0.03)
                 if drift and m == drift[0] and s >= drift[1]:
                     v += drift[3] * (min(s, drift[2]) - drift[1]) / 3600
-                fh.write(
-                    json.dumps(
-                        {
-                            "subsystem": "slowsignal",
-                            "timestamp": iso(t + 0.01 * m),
-                            "tm_slot": m,
-                            "temperature_sipm1": v,
-                        }
-                    )
-                    + "\n"
+                emit(
+                    t + 0.01 * m,
+                    {
+                        "subsystem": "slowsignal",
+                        "timestamp": iso(t + 0.01 * m),
+                        "tm_slot": m,
+                        "temperature_sipm1": v,
+                    },
                 )
+        records.sort(key=lambda r: str(r["gathered_at"]))  # the file is in write order
+        fh.writelines(json.dumps(r) + "\n" for r in records)
     (root / "journal.jsonl").write_text("".join(json.dumps(r) + "\n" for r in journal or []))
     (root / "labels.jsonl").write_text("")
     return str(root)
@@ -132,3 +142,32 @@ def test_crash_loop_is_one_restart_event(tmp_path: Path, profile) -> None:  # ty
     (r,) = [e for e in ev if e.kind == "restart"]
     assert r.subsystem == "slowsignal" and r.severity == "alarm"
     assert r.evidence["restarts"] == 4 and "crash loop" in r.summary
+
+
+def test_frozen_gatherer_is_one_stall_not_source_gaps(tmp_path: Path, profile) -> None:  # type: ignore[no-untyped-def]
+    """R20: a frozen gatherer loses nothing; its write stream stops and the backlog is late."""
+    ev = detect(make_capture(tmp_path, seed=7, frozen=(300, 360)), profile)
+    assert [(e.kind, e.subsystem, e.rule_id) for e in ev] == [("gap", "gatherer", "R-STALL-01")]
+    (e,) = ev
+    assert 59 <= e.evidence["silence_s"] <= 61
+    per = e.evidence["delayed_per_source"]
+    assert per.keys() == {"chiller", "slowsignal"}  # every source held back, not one
+    assert 55 <= per["chiller"] <= 60 and 550 <= per["slowsignal"] <= 600  # all but the last s
+    assert T0 + 299 <= e.ts.timestamp() <= T0 + 300
+
+
+def test_stopped_gatherer_is_source_gaps_not_a_stall(tmp_path: Path, profile) -> None:  # type: ignore[no-untyped-def]
+    """Messages lost, nothing late: the sources' gaps are the evidence, not a stall."""
+    ev = detect(make_capture(tmp_path, seed=8, stopped=(300, 360)), profile)
+    assert not [e for e in ev if e.rule_id == "R-STALL-01"]
+    assert {(e.kind, e.subsystem) for e in ev} == {("gap", "chiller"), ("gap", "slowsignal")}
+
+
+def test_capture_without_receive_times_gives_no_stall_verdict(tmp_path: Path, profile) -> None:  # type: ignore[no-untyped-def]
+    cap = make_capture(tmp_path, seed=9, frozen=(300, 360))
+    f = Path(cap) / "monitoring.jsonl"
+    rows = [json.loads(x) for x in f.read_text().splitlines()]
+    f.write_text(
+        "".join(json.dumps({k: v for k, v in r.items() if k != "gathered_at"}) + "\n" for r in rows)
+    )
+    assert not [e for e in detect(cap, profile) if e.rule_id == "R-STALL-01"]

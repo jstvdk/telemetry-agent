@@ -30,6 +30,7 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-14](#p-14--detector-v0-dev-set) | 2026-09-28 | Detector v0 on dev set | 18/18 after two design fixes; frozen as `detector-v0` | `detector-v0` |
 | [P-15](#p-15--held-out-evaluation) | 2026-09-29 | Held-out evaluation | 15/16 recall, 0 false alarms (B02); 1.3 false alarms/h (B00b) | results commit |
 | [P-16](#p-16--scorer-v1-one-event-one-expected-event) | 2026-09-29 | Scorer v1 | One event credits one expected event; B02 15/16 now computed, not hand-corrected | scorer commit |
+| [P-17](#p-17--a-frozen-gatherer-late-arrival-instead-of-gaps) | 2026-09-29 | Gatherer stall rule | Receive times recovered from existing data; freeze detected as write silence + late backlog; 0 new events elsewhere | stall commit |
 
 ---
 
@@ -484,6 +485,47 @@ The B02 strict precision drops because a second trend event on the same drifting
 
 ---
 
+## P-17 · A frozen gatherer: late arrival instead of gaps
+
+**Goal.** Fix X-15a/R20. A frozen gatherer loses no monitoring, so the gap rule cannot see it, and the catalog's label for it was wrong.
+
+**Where the signal was.** The gatherer wraps every message in a `GatheredMonitoringMessage` whose own `timestamp` it sets to `datetime.now()` on receipt (read in `sstcam_gatherer/handler.py`). The exporter kept only the inner message and threw that receive time away. No camera change was needed.
+
+**Measured (B02 re-export, and the clean captures)**
+
+| | clean (B00, B00b) | B02 during the 61 s freeze |
+|---|---|---|
+| receive minus source time | median 5 ms, worst 1.8 s in 31 min | up to **60.8 s**, all 4 sources at once |
+| longest gap between writes (all sources) | 0.96 s | **60.9 s** |
+| messages lost | – | 0 |
+
+**Done**
+- `export_monitoring.py` writes `gathered_at`. `capture.sh` installs the exporter from the checkout before exporting, so the decoding in a capture is the one in git.
+- `reexport_gathered.sh` adds `gathered_at` to existing captures from their own `.bin` files and refuses to merge unless every decoded record equals the one it annotates. Applied to B00, B00b, B01, B02. The last 46–70 s of each capture (written after the file copy, exported live) keep no receive time: unknown, not zero.
+- Rule **R-STALL-01**: the gatherer's write stream (all sources) is silent for longer than max(2 × the longest baseline write gap, 5 s), *and* messages written after it are late beyond max(2 × the baseline's worst delay, 1 s). A silence without a late backlog is data lost (a stopped gatherer), which R-GAP-01 reports per source. The profile learns both bounds; a capture or profile without receive times gives no verdict.
+- Label validation: `gap` on subsystem `gatherer` checks a write silence followed by late messages.
+- Fault catalog: `process_hang gatherer` now expects one `gap` on `gatherer`, with a root cause that says the data was delayed, not lost. Past labels are unchanged (D-14d).
+- Tests: rule (frozen → one stall and no source gaps; stopped → source gaps and no stall; no receive times → no verdict), evidence check (frozen / lost / clean). A mutation that removes the backlog confirmation fails the stopped-gatherer test.
+
+**Result** (profile from B00; detector code not yet frozen)
+
+| data | new events | notes |
+|---|---|---|
+| B02 | **1**: "The gatherer wrote nothing for 61 s, then 2021 messages from 4 sources arrived up to 61 s late" at 22:12:18 | the L08 freeze started at 22:12:18.0 |
+| B01 | 0 | the stopped gatherer (data lost) stays 4 source gaps + a restart, as labelled |
+| B00b | 0 | |
+
+Label validation of the corrected expectation on B02: found (60.9 s silence, 2125 late messages). Negative control at 31 offsets on B00 and B00b: 0 found, 7 inconclusive.
+
+**Decisions**
+- **D-17a B02 is dev data for the next detector version.** R-STALL-01 was designed after looking at the B02 freeze, so B02 cannot measure it. The held-out set for detector-v1 is B03, recorded after the v1 tag.
+- **D-17b Add fields to captured data only by re-decoding the original files, with an identity check.** The v0 inputs stay byte-for-byte comparable; nothing is edited by hand.
+
+**Failures / dead ends (mine)**
+- **X-17a "Late" was first defined as more than half the silence.** Messages queued near the end of a freeze are only seconds late, so half the backlog was not counted (30 of 60 in the test). The verdict was right, but the evidence understated the backlog. Found by a failing test. Now: late means beyond the baseline's worst delay (rule), or beyond one nominal interval (label check).
+
+---
+
 ## Failure register
 
 Every failure in one table, with how it was found and where it was resolved. "Found by" matters: a failure found by a test or a measurement is worth more than one found by reading.
@@ -510,7 +552,8 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-13a | P-13 | P-13 | Negative control | Windows past the capture end counted as silence | 4 false gaps | Inconclusive outcome | Resolved |
 | X-14a | P-14 | P-14 | Event vs label times | Trend events stamped at window start | Trend recall 0/4 | Detection-time stamps | Resolved |
 | X-14b | P-14 | P-14 | Event counts | Median shift when a module dropped out | 193 false trends | Centred common mode + regression test | Resolved |
-| X-15a | P-12 | P-15 | Label validation | Gatherer hang labelled as gaps; data is buffered, not lost | 3 invalid expected events | Excluded; catalog to fix | Open |
+| X-15a | P-12 | P-15 | Label validation | Gatherer hang labelled as gaps; data is buffered, not lost | 3 invalid expected events | Excluded; catalog + R-STALL-01 (P-17) | Resolved |
+| X-17a | P-17 | P-17 | Failing test | Late defined as > half the silence; half the backlog uncounted | Evidence understated | Lateness bound from baseline | Resolved |
 | X-15b | P-14 | P-15 | Reading per-event table | Scorer can credit one event to two overlapping labels | Recall overstated by 1 | Min-cost one-to-one matching (P-16) | Resolved |
 | X-16a | P-16 | P-16 | Diff vs hand reading | Max matching broke ties by file order; gap credited to wrong fault | Right count, wrong attribution | Min-cost matching + test | Resolved |
 | X-15c | P-14 | P-15 | Held-out clean run | Threshold from short baseline too tight | 1.3 false alarms/h | Longer baseline / tail threshold | Open |
@@ -542,6 +585,8 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | D-15a | Score against validated expectations; publish unvalidated too | P-15 | [results](results.md) |
 | D-16a | One event credits one expected event, most plausible fault first | P-16 | this file |
 | D-16b | New scorer may re-score held-out; new detector may not | P-16 | this file |
+| D-17a | B02 is dev data for detector-v1; B03 is its held-out set | P-17 | this file |
+| D-17b | Add fields to captures only by re-decoding originals, with an identity check | P-17 | this file |
 
 ---
 

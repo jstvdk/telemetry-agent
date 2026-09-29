@@ -1,0 +1,8 @@
+id: B10
+title: Long clean baseline (3 h, one full ambient cycle)
+description: >
+  No faults. 3 h of a healthy camera, for learning detector-v1 thresholds from more than one
+  short run (X-15c). Training data: inspected and tuned on, never used as held-out.
+settle: 0s
+cooldown: 3h
+faults: []
