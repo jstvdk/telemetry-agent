@@ -37,6 +37,7 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-21](#p-21--agent-evaluation-harness-and-a-rule-baseline) | 2026-09-29 | Agent eval harness + rule baseline | Questions from labels; a no-LLM baseline already names the right runbook entry for 80–88 % of isolated faults | eval commit |
 | [P-22](#p-22--dev-runs-before-the-held-out-set-b11-b12) | 2026-09-29 | Dev runs B11/B12 before held-out | 3 lab defects fixed; disk full observed (R21: one short write hides the rest of the day's monitoring); overlapping faults; B03 generator | lab commit |
 | [P-23](#p-23--detector-v1-thresholds-from-43-h-of-clean-data) | 2026-09-29 | Detector v1 | 3-h clean baseline: 5σ holds out of sample (max 4.53σ); 0 alarm-level false alarms on all dev data; boot-time race found | `detector-v1` |
+| [P-24](#p-24--held-out-clean-run-b03c-interrupted-and-salvaged) | 2026-09-29 | Held-out clean run B03c | Docker quit after 1.6 h; data salvaged from the stopped container: 0 events; second segment running | salvage commit |
 
 ---
 
@@ -721,6 +722,28 @@ The baseline's misses are the cases that need reasoning: a stopped gatherer (eve
 
 ---
 
+## P-24 · Held-out clean run B03c: interrupted and salvaged
+
+**What happened.** B03c (4 h clean, `detector-v1` held-out) started on a fresh camera at 13:05:07 UTC, 48 s after the tag commit (`61a2d8f`, 13:04:19 UTC). At 14:41 UTC Docker Desktop was quit (by the author, by accident). The container received a normal shutdown (systemd stopped everything in order: "Stopped target Multi-User System" at 14:41:05). The harness slept through its 4-h window, then failed at the end reading the container clock, so no capture was taken (X-24a).
+
+**Salvage.** `/data` and the journal are Docker volumes, which `docker cp` can read from a *stopped* container, so the camera was not booted again. Monitoring was decoded with the same exporter and the journal with `journalctl --directory`, both in throwaway containers (`lab/camera-in-a-box/salvage.sh`). The monitoring had rotated at 100 MB (`monitoring_2026-09-29.1.bin`, the first rotation seen); the exporter read both files, 202124 messages, 0 damaged ranges. `run.json` was written by hand as reconstructed, with the window from the harness start to 1 s before the first shutdown record.
+
+**Result (held-out, `detector-v1`, profile `eval/profiles/v1.json`)**
+
+| data | window | detector events | false alarms |
+|---|---|---:|---:|
+| B03c segment 1 | 13:05:07 – 14:41:04 UTC, **1.60 h** | **0** (also 0 over the whole capture, including boot and shutdown) | **0** |
+
+Zero in 1.6 h bounds the rate at ≈ 1.9 per hour (95 %, rule of three): too weak for a claim. A **second segment** of the same committed scenario started on a fresh camera at 19:07:48 UTC (21:07 local), with `caffeinate` keeping the Mac awake; the two segments are reported together.
+
+**Decisions**
+- **D-24a An interrupted held-out run is salvaged, not re-recorded from scratch**, when the data up to the interruption is complete and untouched; the covered window is stated, and the missing time is recorded in a new segment of the same committed scenario.
+
+**Failures / dead ends**
+- **X-24a (mine)** The harness sleeps through a long clean window and only reads the camera at the end; when Docker disappears, the whole run is lost to the harness, and nothing warns before the end. A liveness check during long waits (and a capture on failure where possible) would have reported it within minutes.
+
+---
+
 ## Failure register
 
 Every failure in one table, with how it was found and where it was resolved. "Found by" matters: a failure found by a test or a measurement is worth more than one found by reading.
@@ -764,6 +787,7 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-22f | P-12 | P-22 | Reading the harness for B03 | Faults could not overlap | Protocol not runnable | Overlap groups | Resolved |
 | X-22g | P-22 | P-22 | Failing test | "Plain hold" inferred from `during`; the ramp steps in `inject` | Ramp could overlap | Explicit flag | Resolved |
 | X-22h | P-22 | P-22 | 20 "false alarms" | Two runs in one capture | Wrong false-alarm count | `--run-window`; fresh camera for held-out | Resolved |
+| X-24a | P-12 | P-24 | Harness error 4 h later | Long clean window has no liveness check; Docker quit lost the capture step | Held-out run cut to 1.6 h | Salvage from the stopped container; second segment; liveness check to add | Open |
 | X-15b | P-14 | P-15 | Reading per-event table | Scorer can credit one event to two overlapping labels | Recall overstated by 1 | Min-cost one-to-one matching (P-16) | Resolved |
 | X-16a | P-16 | P-16 | Diff vs hand reading | Max matching broke ties by file order; gap credited to wrong fault | Right count, wrong attribution | Min-cost matching + test | Resolved |
 | X-15c | P-14 | P-15 | Held-out clean run | Threshold from short baseline too tight | 1.3 false alarms/h | 5σ term + 4.3 h pooled baseline (P-23); held-out check B03c | Resolved on dev |
@@ -817,6 +841,7 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | D-23a | Known (baseline) tracebacks at info severity | P-23 | this file |
 | D-23b | Scorer reports alarm-severity false alarms separately | P-23 | [results](results.md) |
 | D-23c | v1 held-out numbers only from B03/B03c | P-23 | [results](results.md) |
+| D-24a | Interrupted held-out runs are salvaged and completed with a new segment | P-24 | this file |
 
 ---
 
