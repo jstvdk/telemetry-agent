@@ -31,6 +31,7 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-15](#p-15--held-out-evaluation) | 2026-09-29 | Held-out evaluation | 15/16 recall, 0 false alarms (B02); 1.3 false alarms/h (B00b) | results commit |
 | [P-16](#p-16--scorer-v1-one-event-one-expected-event) | 2026-09-29 | Scorer v1 | One event credits one expected event; B02 15/16 now computed, not hand-corrected | scorer commit |
 | [P-17](#p-17--a-frozen-gatherer-late-arrival-instead-of-gaps) | 2026-09-29 | Gatherer stall rule | Receive times recovered from existing data; freeze detected as write silence + late backlog; 0 new events elsewhere | stall commit |
+| [P-18](#p-18--runbook-draft-and-the-b03-protocol) | 2026-09-29 | Runbook draft + B03 protocol | 11 symptom entries, all `ai-draft`, 27 points for the operator; held-out protocol fixed before any freeze | runbook commit |
 
 ---
 
@@ -461,7 +462,7 @@ The hard drift (1.5 °C/h, ~0.15 °C in 6 min) was detected after 131 s.
 
 **Goal.** Fix X-15b. The scorer credited every matching event to every expected event it fitted, so one event could explain two overlapping faults, and the published B02 number had to be corrected by hand.
 
-**Plan for the next steps (agreed 2026-09-29).** Scorer fix (this entry) → longer clean baseline → detector v1 (late arrival for a frozen gatherer, thresholds from more data) → runbook (drafted, then corrected by the author, then frozen) → new held-out set B03, recorded after both the detector and the runbook are frozen → LLM layer and its evaluation. The runbook question raised at this point, "is a runbook built from injected faults overfitting?", is answered in P-19.
+**Plan for the next steps (agreed 2026-09-29).** Scorer fix (this entry) → longer clean baseline → detector v1 (late arrival for a frozen gatherer, thresholds from more data) → runbook (drafted, then corrected by the author, then frozen) → new held-out set B03, recorded after both the detector and the runbook are frozen → LLM layer and its evaluation. The runbook question raised at this point, "is a runbook built from injected faults overfitting?", is answered in P-18.
 
 **Done.** `src/shiftassist/detect/score.py`: credit is a minimum-cost bipartite matching between expected events and detector events (Hungarian method). Cost, in order: an unmatched expected event, then a partial (module-less) match, then the delay from fault start to event. Events that match an already-credited expected event are reported as *duplicates*: they count for lenient precision, not strict. 5 scorer tests, including a brute-force optimality check on 300 random cases.
 
@@ -526,6 +527,35 @@ Label validation of the corrected expectation on B02: found (60.9 s silence, 212
 
 ---
 
+## P-18 · Runbook draft and the B03 protocol
+
+**Goal.** Give the LLM layer camera knowledge to cite, without building an answer key for our own tests.
+
+**The question (the author's, 2026-09-29).** "Shouldn't we create a runbook with known errors based on the injected ones and their correct solution, as a knowledge base for the agent? Or will this be overfitting?" Both. A runbook is what makes the agent useful rather than a paraphrase of the alarm. But written as one entry per injected fault, describing the injector's traces, and evaluated on the same faults, it would measure recall of an answer key, not diagnosis.
+
+**Done.** `runbook/`: README (rules, format, index) and 11 entries RB-001…RB-011, following the author's roadmap template (§7) with a machine-readable `matches:` block added.
+
+**Decisions (the guards against overfitting)**
+- **D-18a One entry per symptom, not per fault.** Entries start from what is visible and list every known cause, including causes the lab cannot inject (hardware link lost, host suspended, dependency restart, disk not mounted). Several injected faults deliberately map to the same entry (a crash and a missing calibration file are both RB-005), so the agent has to use the *Checks* to tell them apart.
+- **D-18b Sources exclude the injector.** Every entry cites findings about the real system (R-numbers), upstream code at a fixed revision (`file:line`), or lab observations (P-numbers). Two facts were checked against captured data before writing (the exact benign controller message; the journal exit status of a SIGKILL vs. an exception).
+- **D-18c Nothing an operator decides is invented.** Every procedure, limit or contact person is marked **(to confirm)**; 27 such points. All entries are `ai-draft` until the author corrects them. Read-only checks that exist upstream but were never tried against a failing server (`ping-server`, `ping-hardware`) are marked *untested in the lab*.
+- **D-18d "Not in the runbook" is a scored answer.** If no entry matches, the correct response is to say so, give the evidence and escalate.
+- **D-18e B03 protocol, fixed now, before the runbook and detector-v1 are frozen:**
+  1. Order: runbook corrected by the author and frozen (commit) → detector-v1 tagged → B03 scenario generated → B03 recorded → evaluated. Nothing is changed after B03 exists.
+  2. The B03 fault run is generated by a seeded script from the whole catalog. The seed is the first 8 hex digits of the runbook-freeze commit, unknown while the runbook is written. Units, modules, magnitudes, order and timing are drawn at random.
+  3. Constraints: ≥ 10 faults; every catalog type at least once, including `disk_full` (never run so far); ≥ 2 pairs of faults starting within 20 s of each other.
+  4. At least one fault of a type implemented *after* the runbook freeze, which by construction has no entry: the "not in the runbook" case.
+  5. The mapping from each B03 fault to its correct runbook entry (or "none") is committed before B03 is recorded.
+  6. A clean held-out run B03c of at least 4 h, on a separate camera, measures detector-v1 false alarms per hour.
+  7. The agent is evaluated with and without the runbook (ablation), so the runbook's contribution is measured, not assumed.
+
+**Failures / dead ends (mine)**
+- **X-18a** The first draft of RB-010 matched the controller notice on a guessed pattern (`CONTROLLER|WARNING|*simulation*`). The real template is `CONTROLLER-SERVER|WARNING|Simulation override is enabled …`, so the entry would never have been retrieved. Found by checking the profile's known templates; fixed. Each `matches` pattern should be tested against captured events (planned with the retrieval tool).
+
+**Next.** The author corrects the (to confirm) points → freeze. In parallel: detector-v1 thresholds from the 3-h baseline (P-19).
+
+---
+
 ## Failure register
 
 Every failure in one table, with how it was found and where it was resolved. "Found by" matters: a failure found by a test or a measurement is worth more than one found by reading.
@@ -554,6 +584,7 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-14b | P-14 | P-14 | Event counts | Median shift when a module dropped out | 193 false trends | Centred common mode + regression test | Resolved |
 | X-15a | P-12 | P-15 | Label validation | Gatherer hang labelled as gaps; data is buffered, not lost | 3 invalid expected events | Excluded; catalog + R-STALL-01 (P-17) | Resolved |
 | X-17a | P-17 | P-17 | Failing test | Late defined as > half the silence; half the backlog uncounted | Evidence understated | Lateness bound from baseline | Resolved |
+| X-18a | P-18 | P-18 | Checking known templates | Runbook match pattern guessed, would never retrieve its entry | Entry unreachable | Real template; patterns to be tested with retrieval | Resolved |
 | X-15b | P-14 | P-15 | Reading per-event table | Scorer can credit one event to two overlapping labels | Recall overstated by 1 | Min-cost one-to-one matching (P-16) | Resolved |
 | X-16a | P-16 | P-16 | Diff vs hand reading | Max matching broke ties by file order; gap credited to wrong fault | Right count, wrong attribution | Min-cost matching + test | Resolved |
 | X-15c | P-14 | P-15 | Held-out clean run | Threshold from short baseline too tight | 1.3 false alarms/h | Longer baseline / tail threshold | Open |
@@ -587,6 +618,11 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | D-16b | New scorer may re-score held-out; new detector may not | P-16 | this file |
 | D-17a | B02 is dev data for detector-v1; B03 is its held-out set | P-17 | this file |
 | D-17b | Add fields to captures only by re-decoding originals, with an identity check | P-17 | this file |
+| D-18a | Runbook: one entry per symptom, every known cause | P-18 | [runbook](../runbook/README.md) |
+| D-18b | Runbook sources exclude the injector | P-18 | [runbook](../runbook/README.md) |
+| D-18c | Operator decisions are never invented; `ai-draft` until verified | P-18 | [runbook](../runbook/README.md) |
+| D-18d | "Not in the runbook" is a scored answer | P-18 | [runbook](../runbook/README.md) |
+| D-18e | B03 protocol fixed before the freezes (seeded from the runbook-freeze commit) | P-18 | this file |
 
 ---
 
