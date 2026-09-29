@@ -24,6 +24,7 @@ shiftassist-lab = "shiftassist.lab.cli:main"
 shiftassist-detect = "shiftassist.detect.cli:main"
 shiftassist-ask = "shiftassist.agent.cli:main"
 shiftassist-mcp = "shiftassist.mcp_server:main"
+shiftassist-eval-agent = "shiftassist.evaluate.cli:main"
 
 [dependency-groups]
 dev = [

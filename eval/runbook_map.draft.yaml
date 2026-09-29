@@ -1,0 +1,20 @@
+# DRAFT for development on B01/B02/B11/B12. The binding map for B03 is committed after the
+# runbook freeze and before B03 is recorded (PROVENANCE D-18e, item 5).
+# fault kind -> runbook entry a correct answer names; a list = any of these; "none" = no entry
+# applies (the answer must be status not_in_runbook); per unit where the symptom differs.
+process_crash:
+  chiller: [RB-001, RB-005]       # restarted but not reconnected: monitoring silent (RB-001 cause 1)
+  slowboard: [RB-001, RB-005]
+  slowsignal: [RB-005, RB-006]
+  gatherer: [RB-002, RB-005]
+  default: RB-005
+process_hang:
+  gatherer: RB-003
+  default: RB-001                 # frozen server: its monitoring stops, the journal is quiet
+gatherer_down: RB-002
+calibration_missing: [RB-005, RB-006]
+disk_full: RB-012
+slowsignal_drift: RB-008
+sensor_fault: RB-007
+module_dead: RB-004
+chiller_ramp: RB-009

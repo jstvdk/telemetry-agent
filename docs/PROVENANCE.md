@@ -34,6 +34,7 @@ A dated record of how this project was built: every step, the decisions taken at
 | [P-18](#p-18--runbook-draft-and-the-b03-protocol) | 2026-09-29 | Runbook draft + B03 protocol | 11 symptom entries, all `ai-draft`, 27 points for the operator; held-out protocol fixed before any freeze | runbook commit |
 | [P-19](#p-19--read-only-tools-for-the-llm-layer) | 2026-09-29 | Read-only tools | 7 tools from one registry over a snapshot; every real B01/B02 event retrieves a runbook entry | tools commit |
 | [P-20](#p-20--agent-loop-and-grounding-validator) | 2026-09-29 | Agent loop + validator | One loop, two provider adapters, structured answer, V1–V5 in code; tested offline with a scripted model | agent commit |
+| [P-21](#p-21--agent-evaluation-harness-and-a-rule-baseline) | 2026-09-29 | Agent eval harness + rule baseline | Questions from labels; a no-LLM baseline already names the right runbook entry for 80–88 % of isolated faults | eval commit |
 
 ---
 
@@ -606,6 +607,35 @@ Smoke test on B02: the 1.5 °C/h hard drift reads as a relative slope of 1.48 °
 
 ---
 
+## P-21 · Agent evaluation harness and a rule baseline
+
+**Goal.** Measure the agent before it exists live, and know what "good" has to beat.
+
+**Done.** `src/shiftassist/evaluate/`:
+- `agent.py`: one question per fault, or per group of overlapping faults ("What happened between A and B, and what should the operator do?"); the model never sees labels. Scores per run: submitted, schema/tool errors, steps (layer 2); `runbook_ok`, the expected entry named, or `not_in_runbook` for a fault type with no entry; evidence recall against the events the detector scorer credited to those faults (layer 3); hallucinated citations and flags from the validator; strict and lenient evidence precision (layer 4); tokens (layer 5); pass^k over k repeats (layer 6). Every run is saved as JSON with its score.
+- `baseline.py`: a deterministic stand-in for the model, run through the same loop, validator and scorer: read the window's timeline, open the first most severe event, name its first unconditional runbook entry, cite everything seen.
+- `shiftassist-eval-agent`; `eval/runbook_map.draft.yaml` (fault → entry that a correct answer names, from the entries' text). The binding map for B03 is committed after the runbook freeze (D-18e).
+- 4 tests (entry mapping by kind and unit, grouping of overlapping faults, windows that stop before the next fault, the baseline end to end, a fault with no entry).
+
+**Result (dev data, draft map, rule baseline, no LLM)**
+
+| data | questions | runbook entry right | evidence recall | strict precision |
+|---|---:|---:|---:|---:|
+| B01 | 8 | **7/8** | 1.00 | 0.83 |
+| B02 | 10 | **8/10** | 1.00 | 0.70 |
+
+The baseline's misses are the cases that need reasoning: a stopped gatherer (every source silent at once → RB-002, but the first gap says RB-001), and a slow-signal crash and a missing calibration file (the first alarm is the monitoring gap, a consequence; the cause is the crash, RB-005). A fault type with no entry gets a confident wrong entry by construction (test).
+
+**Decisions**
+- **D-21a A no-LLM baseline is part of every agent result.** On isolated faults with clean windows, a lookup already gets most runbook choices right; the LLM has to earn its cost on simultaneity, cause vs. consequence, overlapping faults and "not in the runbook", which is why B03 contains overlaps and a new fault type.
+- **D-21b One incident per question.** Windows stop 5 s before the next fault starts and begin 5 s after the previous one ends; overlapping faults are one question.
+
+**Failures / dead ends (mine)**
+- **X-21a Question windows first ran 180 s past the fault**, into the next fault (faults are ~3 min apart). The baseline then scored 62 % / 50 %, mostly by naming the next fault's entry, and the ground truth was ambiguous. Found by listing the wrong answers. Fixed (D-21b).
+- **X-21b Evidence precision first counted any event in the window as correct**, so citing everything scored 1.0. Now strict (credited to the faults) and lenient are reported separately, with the number of events cited.
+
+---
+
 ## Failure register
 
 Every failure in one table, with how it was found and where it was resolved. "Found by" matters: a failure found by a test or a measurement is worth more than one found by reading.
@@ -639,6 +669,8 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | X-19b | P-18 | P-19 | Retrieval on real events | Module gap retrieved "all silent" entries | Noisy retrieval | `entity: null` + `applies_if`; test | Resolved |
 | X-19c | P-18 | P-19 | Retrieval on real events | Pointing stop-hook error matched no entry | Event without guidance | Added to RB-006 | Resolved |
 | X-20a | P-06 | P-20 | mypy import error | Local env without the `llm` extra; `httpx` undeclared | Local/CI mismatch | Declared; synced with extras | Resolved |
+| X-21a | P-21 | P-21 | Listing wrong answers | Question windows ran into the next fault | Ambiguous ground truth; baseline 62 %/50 % | One incident per question | Resolved |
+| X-21b | P-21 | P-21 | Baseline scored 1.0 | Precision counted any in-window event | Metric could not discriminate | Strict + lenient + count | Resolved |
 | X-15b | P-14 | P-15 | Reading per-event table | Scorer can credit one event to two overlapping labels | Recall overstated by 1 | Min-cost one-to-one matching (P-16) | Resolved |
 | X-16a | P-16 | P-16 | Diff vs hand reading | Max matching broke ties by file order; gap credited to wrong fault | Right count, wrong attribution | Min-cost matching + test | Resolved |
 | X-15c | P-14 | P-15 | Held-out clean run | Threshold from short baseline too tight | 1.3 false alarms/h | Longer baseline / tail threshold | Open |
@@ -684,6 +716,8 @@ Every failure in one table, with how it was found and where it was resolved. "Fo
 | D-20b | No camera knowledge in the system prompt | P-20 | this file |
 | D-20c | `not_in_runbook` is its own answer status | P-20 | this file |
 | D-20d | No model run until the author picks a provider | P-20 | this file |
+| D-21a | A no-LLM baseline is reported with every agent result | P-21 | this file |
+| D-21b | One incident per question | P-21 | this file |
 
 ---
 

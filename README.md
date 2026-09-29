@@ -12,8 +12,11 @@ A prototype **operator assistant** for a telescope camera. It watches logs and t
 | v1 simulator: 10 seeded fault scenarios with ground-truth labels (`make sim SCENARIO=S03`) | ✅ M1 |
 | camera-in-a-box: real camera software on mocks, 9 fault types, labels validated against data | ✅ [lab](lab/camera-in-a-box/README.md) |
 | Detector v0: held-out recall 15/16, 0 false alarms on faulted run, 1.3 /h on clean run | ✅ [results](docs/results.md) |
-| LLM layer: tools → agent → grounding validator → eval | 📐 designed, [plan](docs/07-delivery-plan.md) |
-| Experiments: architecture vs. model, hosted vs. local models | 📐 [designed](docs/04-evaluation.md) |
+| Detector v1: frozen-gatherer rule, thresholds from a longer clean baseline | 🔨 stall rule done ([P-17](docs/PROVENANCE.md#p-17--a-frozen-gatherer-late-arrival-instead-of-gaps)); thresholds wait for the 3-h baseline |
+| Runbook: 11 symptom entries with sources, retrieval tested on real detector events | 🔨 `ai-draft`, awaiting operator review ([runbook](runbook/README.md)) |
+| LLM layer: 7 read-only tools (one registry → agent + MCP), agent loop, grounding validator | ✅ built and tested offline; no live model run yet |
+| Agent evaluation: questions from labels, layers 2–6, pass^k, a no-LLM rule baseline | ✅ harness; rule baseline names the right runbook entry for 7/8 and 8/10 dev faults |
+| Held-out B03 (generated from the runbook-freeze commit) + experiments with models | 📐 protocol fixed ([P-18](docs/PROVENANCE.md#p-18--runbook-draft-and-the-b03-protocol)) |
 
 ## How it is designed
 
@@ -42,13 +45,23 @@ Requires [uv](https://docs.astral.sh/uv/). Python 3.12 is installed by uv if mis
 ```bash
 make install        # .venv + package + dev tools
 make test           # deterministic tests, no API key needed
+
+# on a capture from lab/camera-in-a-box (see its README):
+uv run shiftassist-detect run CAPTURE -p PROFILE                    # events.jsonl
+uv run shiftassist-ask CAPTURE "What happened at 22:13?"            # needs ANTHROPIC_API_KEY
+uv run shiftassist-ask CAPTURE "..." --provider openai --model MODEL  # local, e.g. Ollama
+uv run shiftassist-eval-agent CAPTURE --map eval/runbook_map.draft.yaml -o out/  # rule baseline
+uv run shiftassist-mcp CAPTURE      # the same tools for any MCP client
 ```
 
 ## Repository layout
 
 ```
-src/shiftassist/    v1 package (see docs/03-architecture.md §7 for the target layout)
-scenarios/          simulator scenarios (YAML)
+src/shiftassist/    sim · collect · detect · lab (fault harness) · tools · agent · evaluate
+lab/camera-in-a-box/  real camera software on mocks in Docker, fault scenarios (tier B)
+runbook/            one Markdown entry per symptom, with status and sources
+scenarios/          tier-A simulator scenarios (YAML)
+eval/               detector profiles, runbook maps
 tests/
 baseline/           v0 learning spike, unchanged; baseline for experiment E1
 docs/               design docs, ADRs, evaluation, provenance
